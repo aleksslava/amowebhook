@@ -14,7 +14,7 @@ bot=Bot(token=config.tg_bot.token)
 app = FastAPI()
 
 @app.post('/')
-def get_info(message: Annotated[int, Body()]):
+def get_info(message: Annotated[str, Body()]):
     bot.send_message(chat_id=config.admin_chat_id,
                      text=str(message))
 
