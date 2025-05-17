@@ -13,20 +13,20 @@ app = FastAPI()
 
 # Определение моделей данных
 class Status(BaseModel):
-    id: int
-    old_pipeline_id: int
-    pipeline_id: int
-    old_status_id: int
-    status_id: int
+    id: Annotated[str, Form()]
+    old_pipeline_id: Annotated[str, Form()]
+    pipeline_id: Annotated[str, Form()]
+    old_status_id: Annotated[str, Form()]
+    status_id: Annotated[str, Form()]
 
 class Leads(BaseModel):
-    status: List[Status]
+    status: Annotated[List[Status], Form()]
 
 class RequestBody(BaseModel):
-    leads: Leads
+    leads: Annotated[Leads, Form()]
 
 
 @app.post('/')
-async def get_info(request_body: Annotated[str, Form()]):
+async def get_info(request_body: RequestBody):
     await bot.send_message(chat_id=config.admin_chat_id,
                            text=f'{request_body}')
