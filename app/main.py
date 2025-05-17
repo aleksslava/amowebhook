@@ -12,21 +12,18 @@ bot = Bot(token=config.tg_bot.token)
 app = FastAPI()
 
 # Определение моделей данных
-class LeadAdd(BaseModel):
+class Status(BaseModel):
     id: int
-    status_id: int
+    old_pipeline_id: int
     pipeline_id: int
+    old_status_id: int
+    status_id: int
 
 class Leads(BaseModel):
-    add: List[LeadAdd]
-
-class Account(BaseModel):
-    id: int
-    subdomain: str
+    status: List[Status]
 
 class RequestBody(BaseModel):
     leads: Leads
-    account: Account
 
 
 @app.post('/')
