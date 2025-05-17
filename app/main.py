@@ -29,5 +29,6 @@ class RequestBody(BaseModel):
 @app.post('/')
 async def get_info(req: Request):
     data = await req.form()
+    id = data.get('leads[add][0][id]')
     await bot.send_message(chat_id=config.admin_chat_id,
-                           text=f'{data}')
+                           text=f'{data}, {id}')
