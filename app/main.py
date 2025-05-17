@@ -27,6 +27,6 @@ class RequestBody(BaseModel):
 
 
 @app.post('/')
-async def get_info(request_body: str | None = Query(default=None, max_length=50)):
+async def get_info(request_body: Annotated[int, Body()]):
     await bot.send_message(chat_id=config.admin_chat_id,
                            text=f'{request_body}')
