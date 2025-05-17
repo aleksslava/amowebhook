@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Body
 import json
 from aiogram import Bot
 from settings.settings import load_config
+from typing import Annotated
 
 
 
@@ -13,7 +14,7 @@ bot=Bot(token=config.tg_bot.token)
 app = FastAPI()
 
 @app.post('/')
-def get_info(message):
+def get_info(message: Annotated[int, Body()]):
     bot.send_message(chat_id=config.admin_chat_id,
                      text=str(message))
 
