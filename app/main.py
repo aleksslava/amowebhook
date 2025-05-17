@@ -27,6 +27,12 @@ class RequestBody(BaseModel):
 
 
 @app.post('/')
-async def get_info(request_body: RequestBody):
+async def get_info(
+    leads_add_0_id: int = Form(...),
+    leads_add_0_status_id: int = Form(...),
+    leads_add_0_pipeline_id: int = Form(...),
+    account_id: int = Form(...),
+    account_subdomain: str = Form(...)
+):
     await bot.send_message(chat_id=config.admin_chat_id,
-                           text=f'{request_body}')
+                           text=f'{leads_add_0_id}')
