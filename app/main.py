@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Body, Query, Form
+from fastapi import FastAPI, Body, Query, Form, Request
 import json
 from aiogram import Bot
 from pydantic import BaseModel
@@ -27,12 +27,7 @@ class RequestBody(BaseModel):
 
 
 @app.post('/')
-async def get_info(
-    leads_add_0_id: str = Form(...),
-    leads_add_0_status_id: str = Form(...),
-    leads_add_0_pipeline_id: str = Form(...),
-    account_id: str = Form(...),
-    account_subdomain: str = Form(...)
-):
+async def get_info(req: Request):
+    data = await req.form()
     await bot.send_message(chat_id=config.admin_chat_id,
-                           text=f'{leads_add_0_id}')
+                           text=f'{data}')
