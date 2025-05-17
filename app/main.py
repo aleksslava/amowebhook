@@ -13,11 +13,11 @@ app = FastAPI()
 
 # Определение моделей данных
 class Status(BaseModel):
-    id: int
-    old_pipeline_id: int
-    pipeline_id: int
-    old_status_id: int
-    status_id: int
+    id: str
+    old_pipeline_id: str
+    pipeline_id: str
+    old_status_id: str
+    status_id: str
 
 class Leads(BaseModel):
     status: List[Status]
