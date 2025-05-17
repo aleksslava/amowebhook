@@ -4,18 +4,13 @@ from aiogram import Bot
 from settings.settings import load_config
 from typing import Annotated
 
-
-
-
 config = load_config()
-bot=Bot(token=config.tg_bot.token)
-
+bot = Bot(token=config.tg_bot.token)
 
 app = FastAPI()
 
+
 @app.post('/')
-def get_info(message: Annotated[str, Body()]):
-    bot.send_message(chat_id=config.admin_chat_id,
-                     text=str(message))
-
-
+async def get_info(message: Annotated[str, Body()]):
+    await bot.send_message(chat_id=config.admin_chat_id,
+                           text=str(message))
