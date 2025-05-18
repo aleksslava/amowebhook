@@ -42,8 +42,6 @@ async def get_info(req: Request):
 
         lead_price = lead.get('price')
         custom_fields = lead.get('custom_fields_values')
-        await bot.send_message(chat_id=config.admin_chat_id,
-                               text=f'{custom_fields}')
         lead_bonus = get_lead_bonus(custom_fields)
 
         contacts = lead.get('_embedded').get('contacts')
@@ -59,7 +57,7 @@ async def get_info(req: Request):
             contact = amo_api.get_contact_by_id(main_contact_id)
             if contact[0]:
                 await bot.send_message(chat_id=config.admin_chat_id,
-                                       text=contact[1])
+                                       text=str(contact[1]))
 
             else:
                 await bot.send_message(chat_id=config.admin_chat_id,
