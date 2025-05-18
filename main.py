@@ -76,7 +76,7 @@ async def get_info(req: Request):
                                                 f'Покупатель id {customer_id}\n'
                                                 f'Сумма сделки - {lead_price}, бонусов начислено - {lead_bonus}\n'
                                                 f'Прошлое значение чистого выкупа - {last_full_price}\n'
-                                                f'Добавлено в чистый выкуп - {lead_price - lead_bonus}\n'
+                                                f'Добавлено в чистый выкуп - {int(lead_price) - int(lead_bonus)}\n'
                                                 f'Новая сумма чистого выкупа - {new_full_price}')
 
                 else:
