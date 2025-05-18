@@ -3,7 +3,7 @@ from aiogram import Bot
 import logging
 from settings.amo_api import AmoCRMWrapper
 from settings.settings import load_config
-from utils.utils import get_lead_bonus, get_main_contact
+from utils.utils import get_lead_bonus, get_main_contact, get_customer_id, get_full_price_customer
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -54,8 +54,38 @@ async def get_info(req: Request):
         else:
             contact = amo_api.get_contact_by_id(main_contact_id)
             if contact[0]:
-                await bot.send_message(chat_id=config.admin_chat_id,
-                                       text=str(contact[1]))
+                contact = contact[1]
+                try:
+                    customer_id = get_customer_id(contact)
+                except:
+                    await bot.send_message(chat_id=config.admin_chat_id,
+                                           text=f'Произошла ошибка при попытке получить id покупателя из контакта.\n'
+                                                f'id сделки: {lead_id}\n'
+                                                f'id контакта: {main_contact_id}')
+                    raise ValueError
+                customer_obj = amo_api.get_customer_by_id(customer_id)
+                if customer_obj[0]:
+                    last_full_price = get_full_price_customer(customer_obj[1])
+                    new_full_price = last_full_price + lead_price - lead_bonus
+                    amo_api.put_full_price_to_customer(id_customer=customer_id,
+                                                       new_price=new_full_price)
+                    await bot.send_message(chat_id=config.admin_chat_id,
+                                           text=f'Успешная запись в чистый выкуп покупателя.\n'
+                                                f'Сделка id {lead_id}\n'
+                                                f'Контакт id {main_contact_id}\n'
+                                                f'Покупатель id {customer_id}\n'
+                                                f'Сумма сделки - {lead_price}, бонусов начислено - {lead_bonus}\n'
+                                                f'Прошлое значение чистого выкупа - {last_full_price}\n'
+                                                f'Добавлено в чистый выкуп - {lead_price - lead_bonus}\n'
+                                                f'Новая сумма чистого выкупа - {new_full_price}')
+
+                else:
+                    await bot.send_message(chat_id=config.admin_chat_id,
+                                           text=f'Ошибка при попытке получить сущность покупателя.\n'
+                                                f'Сделка id {lead_id}\n'
+                                                f'Контакт id {main_contact_id}\n'
+                                                f'Покупатель id {customer_id}')
+
 
             else:
                 await bot.send_message(chat_id=config.admin_chat_id,

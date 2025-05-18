@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Dict
 logger = logging.getLogger(__name__)
 
 def get_lead_bonus(lst: List):
@@ -19,3 +19,19 @@ def get_main_contact(lst: List):
 
     main_contact_id = main_contact[0].get('id')
     return main_contact_id
+
+def get_customer_id(dct: Dict):
+    customers = dct.get('_embedded').get('customers')
+
+    customer = customers[0]
+    return customer.get('id')
+
+def get_full_price_customer(dct: Dict):
+    custom_fields_list = dct.get('custom_fields_values')
+
+    full_price = [res for res in custom_fields_list if res[id] == 1105022]
+
+    if not full_price:
+        return 0
+
+    return full_price
