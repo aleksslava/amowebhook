@@ -1,11 +1,15 @@
 from fastapi import FastAPI, Request
 from aiogram import Bot
-
+import logging
 from settings.amo_api import AmoCRMWrapper
 from settings.settings import load_config
 from utils.utils import get_lead_bonus, get_main_contact
 
-
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+        level=logging.INFO,
+        format='%(filename)s:%(lineno)d #%(levelname)-8s '
+               '[%(asctime)s] - %(name)s - %(message)s')
 
 config = load_config()
 bot = Bot(token=config.tg_bot.token)
