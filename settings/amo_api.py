@@ -8,7 +8,7 @@ import logging
 
 from pydantic import json
 from requests.exceptions import JSONDecodeError
-from settings import load_config
+
 
 logger = logging.getLogger(__name__)
 

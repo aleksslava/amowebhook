@@ -1,7 +1,9 @@
 from fastapi import FastAPI, Request
 from aiogram import Bot
-from settings.settings import load_config
+
 from settings.amo_api import AmoCRMWrapper
+from settings.settings import load_config
+
 
 
 config = load_config()
