@@ -8,7 +8,7 @@ import logging
 
 from pydantic import json
 from requests.exceptions import JSONDecodeError
-from settings.settings import load_config
+from settings import load_config
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +82,7 @@ class AmoCRMWrapper:
 
         response = requests.post("https://{}.amocrm.ru/oauth2/access_token".format(self.amocrm_subdomain),
                                  json=data).json()
+        print(response)
 
         access_token = response["access_token"]
         refresh_token = response["refresh_token"]
@@ -232,13 +233,28 @@ class AmoCRMWrapper:
         else:
             raise JSONDecodeError
 
+    def get_lead_with_contacts(self, lead_id):
+        url = f'/api/v4/leads/{lead_id}'
+        query = 'with=contacts'
+
+        lead = self._base_request(endpoint=url, type="get_param", parameters=query)
+        if lead.status_code == 200:
+            return True, lead.json()
+
+
+        elif lead.status_code == 204:
+            return False, f'Сделка {lead_id} не найдена'
+        else:
+            logger.error('Нет авторизации в AMO_API')
+            return False, 'Произошла ошибка на сервере!'
+
 
 
 
 
 if __name__ == '__main__':
-    from settings.settings import load_config, Config
-    config: Config = load_config()
+    from settings import load_config, Config
+    config: Config = load_config(path='../.env')
 
     amo_api = AmoCRMWrapper(
         path=config.amo_config.path_to_env,
@@ -250,8 +266,7 @@ if __name__ == '__main__':
         amocrm_access_token=config.amo_config.amocrm_access_token,
         amocrm_refresh_token=config.amo_config.amocrm_refresh_token
     )
-    response = amo_api.get_responsible_user_by_id(12376093)
-    pprint.pprint(response.json().get('name'), indent=4)
+    amo_api.init_oauth2()
 
 
 
