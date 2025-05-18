@@ -33,8 +33,6 @@ amo_api = AmoCRMWrapper(
 async def get_info(req: Request):
     data = await req.form()
     lead_id = data.get('leads[add][0][id]')
-    # await bot.send_message(chat_id=config.admin_chat_id,
-    #                        text=f'{data}, {id}')
 
     lead = amo_api.get_lead_with_contacts(lead_id=lead_id)
     if lead[0]:
@@ -70,6 +68,5 @@ async def get_info(req: Request):
         await bot.send_message(chat_id=config.admin_chat_id,
                                text=f"Произошла ошибка, бот не нашёл сделку №{lead_id}")
 
-    await bot.send_message(chat_id=config.admin_chat_id,
-                           text=str(lead))
+
 
