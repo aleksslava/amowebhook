@@ -42,6 +42,8 @@ async def get_info(req: Request):
 
         lead_price = lead.get('price')
         custom_fields = lead.get('custom_fields_values')
+        await bot.send_message(chat_id=config.admin_chat_id,
+                               text=f'{custom_fields}')
         lead_bonus = get_lead_bonus(custom_fields)
 
         contacts = lead.get('_embedded').get('contacts')
