@@ -3,6 +3,7 @@ from aiogram import Bot
 
 from settings.amo_api import AmoCRMWrapper
 from settings.settings import load_config
+from utils.utils import get_lead_bonus, get_main_contact
 
 
 
@@ -32,6 +33,38 @@ async def get_info(req: Request):
     #                        text=f'{data}, {id}')
 
     lead = amo_api.get_lead_with_contacts(lead_id=lead_id)
+    if lead[0]:
+        lead = lead[1]
+
+        lead_price = lead.get('price')
+        custom_fields = lead.get('custom_fields_values')
+        lead_bonus = get_lead_bonus(custom_fields)
+
+        contacts = lead.get('_embedded').get('contacts')
+        main_contact_id = get_main_contact(contacts)
+
+        if not main_contact_id:
+            await bot.send_message(chat_id=config.admin_chat_id,
+                                   text=f"Произошла ошибка,\n"
+                                        f"Сделка id {lead_id}\n"
+                                        f"Не удалось извлечь id главного контакта сделки.")
+
+        else:
+            contact = amo_api.get_contact_by_id(main_contact_id)
+            if contact[0]:
+                await bot.send_message(chat_id=config.admin_chat_id,
+                                       text=contact[1])
+
+            else:
+                await bot.send_message(chat_id=config.admin_chat_id,
+                                       text=f'Произошла ошибка!\n'
+                                            f'Сделка id {lead_id}\n'
+                                            f'Контакт id {main_contact_id}\n'
+                                            f'Текст ошибки: {contact[1]}')
+
+    else:
+        await bot.send_message(chat_id=config.admin_chat_id,
+                               text=f"Произошла ошибка, бот не нашёл сделку №{lead_id}")
 
     await bot.send_message(chat_id=config.admin_chat_id,
                            text=str(lead))

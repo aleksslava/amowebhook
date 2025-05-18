@@ -218,11 +218,20 @@ class AmoCRMWrapper:
         logger.info(f'Запись ID_telegram: {tg_id} в карту партнёра: {id_customer}\n'
                     f'Статус операции: {response.status_code}')
 
-    def get_contact_by_id(self, contact_id) -> dict:
+    def get_contact_by_id(self, contact_id) -> tuple:
         url = f'/api/v4/contacts/{contact_id}'
-        response = self._base_request(type='get', endpoint=url)
+        query = 'with=customers'
+        contact = self._base_request(type='get_param', endpoint=url, parameters=query)
+        if contact.status_code == 200:
+            return True, contact.json()
 
-        return response.json()
+        elif contact.status_code == 204:
+            return False, f'Контакт {contact_id} не найден'
+        else:
+            logger.error('Нет авторизации в AMO_API')
+            return False, 'Произошла ошибка на сервере!'
+
+
 
     def get_responsible_user_by_id(self, manager_id: int):
         url = f'/api/v4/users/{manager_id}'
