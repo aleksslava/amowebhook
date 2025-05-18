@@ -34,4 +34,6 @@ def get_full_price_customer(dct: Dict):
     if not full_price:
         return 0
 
-    return full_price
+    res = full_price[0].get('values')[0].get('value')
+
+    return res

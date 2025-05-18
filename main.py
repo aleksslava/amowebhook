@@ -66,7 +66,7 @@ async def get_info(req: Request):
                 customer_obj = amo_api.get_customer_by_id(customer_id)
                 if customer_obj[0]:
                     last_full_price = get_full_price_customer(customer_obj[1])
-                    new_full_price = last_full_price + lead_price - lead_bonus
+                    new_full_price = int(last_full_price) + int(lead_price) - int(lead_bonus)
                     amo_api.put_full_price_to_customer(id_customer=customer_id,
                                                        new_price=new_full_price)
                     await bot.send_message(chat_id=config.admin_chat_id,
