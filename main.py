@@ -80,7 +80,7 @@ async def get_info(req: Request):
                                                 f'Прошлое значение чистого выкупа - {last_full_price}\n'
                                                 f'Прошлое значение бонусов на балансе - {last_full_bonus}\n\n'
                                                 f'Добавлено в чистый выкуп - {int(lead_price) - int(lead_bonus)}\n'
-                                                f'Добавлено в бонусы на балансе - {new_full_bonus}\n\n'
+                                                f'Добавлено в бонусы на балансе - {lead_bonus}\n\n'
                                                 f'Новая сумма чистого выкупа - {new_full_price}\n'
                                                 f'Новая сумма бонусов на балансе - {new_full_bonus}')
 
