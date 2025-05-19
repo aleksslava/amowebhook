@@ -37,3 +37,15 @@ def get_full_price_customer(dct: Dict):
     res = full_price[0].get('values')[0].get('value')
 
     return res
+
+def get_full_bonus_customer(dct: Dict):
+    custom_fields_list = dct.get('custom_fields_values')
+
+    full_bonus = [res for res in custom_fields_list if res['field_id'] == 971580]
+
+    if not full_bonus:
+        return 0
+
+    res = full_bonus[0].get('values')[0].get('value')
+
+    return res

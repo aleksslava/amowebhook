@@ -3,7 +3,8 @@ from aiogram import Bot
 import logging
 from settings.amo_api import AmoCRMWrapper
 from settings.settings import load_config
-from utils.utils import get_lead_bonus, get_main_contact, get_customer_id, get_full_price_customer
+from utils.utils import (get_lead_bonus, get_main_contact, get_customer_id, get_full_price_customer,
+                         get_full_bonus_customer)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -66,17 +67,21 @@ async def get_info(req: Request):
                 customer_obj = amo_api.get_customer_by_id(customer_id)
                 if customer_obj[0]:
                     last_full_price = get_full_price_customer(customer_obj[1])
+                    last_full_bonus = get_full_bonus_customer(customer_obj[1])
                     new_full_price = int(last_full_price) + int(lead_price) - int(lead_bonus)
+                    new_full_bonus = int(last_full_bonus) + int(lead_bonus)
                     amo_api.put_full_price_to_customer(id_customer=customer_id,
-                                                       new_price=new_full_price)
+                                                       new_price=new_full_price,
+                                                       new_bonus=new_full_bonus)
                     await bot.send_message(chat_id=config.admin_chat_id,
-                                           text=f'Успешная запись в чистый выкуп покупателя.\n'
+                                           text=f'Успешная запись в покупателя id {customer_id}.\n'
                                                 f'Сделка id {lead_id}\n'
                                                 f'Контакт id {main_contact_id}\n'
-                                                f'Покупатель id {customer_id}\n'
                                                 f'Сумма сделки - {lead_price}, бонусов начислено - {lead_bonus}\n'
                                                 f'Прошлое значение чистого выкупа - {last_full_price}\n'
+                                                f'Прошлое значение бонусов на балансе - {last_full_bonus}\n'
                                                 f'Добавлено в чистый выкуп - {int(lead_price) - int(lead_bonus)}\n'
+                                                f'Добавлено в бонусы на балансе - {new_full_bonus}\n'
                                                 f'Новая сумма чистого выкупа - {new_full_price}')
 
                 else:

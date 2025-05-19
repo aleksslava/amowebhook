@@ -257,14 +257,18 @@ class AmoCRMWrapper:
             logger.error('Нет авторизации в AMO_API')
             return False, 'Произошла ошибка на сервере!'
 
-    def put_full_price_to_customer(self, id_customer, new_price):
+    def put_full_price_to_customer(self, id_customer, new_price, new_bonus):
         url = f'/api/v4/customers/{id_customer}'
         data = {"custom_fields_values": [
             {"field_id": 1105022,
              "values": [
                  {"value": f"{new_price}"},
                  ]
-             }]}
+             },
+            {"field_id": 971580,
+             "values": [
+                 {"value": f"{new_bonus}"},
+             ]}]}
         response = self._base_request(type='patch', endpoint=url, data=data)
 
 
