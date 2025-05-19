@@ -75,14 +75,14 @@ async def get_info(req: Request):
                                                        new_bonus=new_full_bonus)
                     await bot.send_message(chat_id=config.admin_chat_id,
                                            text=f'Успешная запись в покупателя id {customer_id}.\n'
-                                                f'Сделка id {lead_id}\n'
-                                                f'Контакт id {main_contact_id}\n'
-                                                f'Сумма сделки - {lead_price}, бонусов начислено - {lead_bonus}\n'
+                                                f'Сделка id {lead_id} / Контакт id {main_contact_id}\n'
+                                                f'Сумма сделки - {lead_price}, бонусов начислено - {lead_bonus}\n\n'
                                                 f'Прошлое значение чистого выкупа - {last_full_price}\n'
-                                                f'Прошлое значение бонусов на балансе - {last_full_bonus}\n'
+                                                f'Прошлое значение бонусов на балансе - {last_full_bonus}\n\n'
                                                 f'Добавлено в чистый выкуп - {int(lead_price) - int(lead_bonus)}\n'
-                                                f'Добавлено в бонусы на балансе - {new_full_bonus}\n'
-                                                f'Новая сумма чистого выкупа - {new_full_price}')
+                                                f'Добавлено в бонусы на балансе - {new_full_bonus}\n\n'
+                                                f'Новая сумма чистого выкупа - {new_full_price}\n'
+                                                f'Новая сумма бонусов на балансе - {new_full_bonus}')
 
                 else:
                     await bot.send_message(chat_id=config.admin_chat_id,
