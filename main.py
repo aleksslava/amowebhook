@@ -76,9 +76,12 @@ async def get_info(req: Request):
                                                        new_price=new_full_price,
                                                        new_bonus=new_full_bonus)
                     await bot.send_message(chat_id=config.admin_chat_id,
-                                           text=f'Успешная запись в '
-                                                f'<a href="https://hite.amocrm.ru/customers/detail/{customer_id}">покупателя</a>.\n'
-                                                f'Сделка id {lead_id} / Контакт id {main_contact_id}\n'
+                                           text=f'Успешная запись в покупателя id'
+                                                f'<a href="https://hite.amocrm.ru/customers/detail/{customer_id}">{customer_id}</a>.\n'
+                                                f'Сделка id '
+                                                f'<a href="https://hite.amocrm.ru/leads/{lead_id}">{lead_id}</a> / '
+                                                f'Контакт id '
+                                                f'<a href="https://hite.amocrm.ru/contacts/{main_contact_id}">{main_contact_id}</a>\n'
                                                 f'Сумма сделки - {lead_price}, бонусов начислено\списано - {int(lead_bonus)-int(lead_bonus_off)}\n\n'
                                                 f'Прошлое значение чистого выкупа - {last_full_price}\n'
                                                 f'Прошлое значение бонусов на балансе - {last_full_bonus}\n\n'
