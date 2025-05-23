@@ -18,7 +18,7 @@ def get_lead_bonus_off(lst: List):
     if not bonus:
         return 0
     bonus = bonus[0].get('values')[0].get('value')
-    return abs(bonus)
+    return abs(int(bonus))
 
 def get_main_contact(lst: List):
     main_contact = [res for res in lst if res['is_main']]
