@@ -5,6 +5,7 @@ from settings.amo_api import AmoCRMWrapper
 from settings.settings import load_config
 from utils.utils import (get_lead_bonus, get_main_contact, get_customer_id, get_full_price_customer,
                          get_full_bonus_customer, get_lead_bonus_off)
+from aiogram.enums.parse_mode import ParseMode
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -84,7 +85,8 @@ async def get_info(req: Request):
                                                 f'Добавлено в чистый выкуп - {int(lead_price) - int(lead_bonus)}\n'
                                                 f'Добавлено в бонусы на балансе - {lead_bonus}\n\n'
                                                 f'Новая сумма чистого выкупа - {new_full_price}\n'
-                                                f'Новая сумма бонусов на балансе - {new_full_bonus}')
+                                                f'Новая сумма бонусов на балансе - {new_full_bonus}',
+                                           parse_mode=ParseMode.HTML)
 
                 else:
                     await bot.send_message(chat_id=config.admin_chat_id,
