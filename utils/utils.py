@@ -11,6 +11,15 @@ def get_lead_bonus(lst: List):
     bonus = bonus[0].get('values')[0].get('value')
     return bonus
 
+def get_lead_bonus_off(lst: List):
+    if lst is None:
+        return 0
+    bonus = [res for res in lst if res['field_id'] == 1105036]
+    if not bonus:
+        return 0
+    bonus = bonus[0].get('values')[0].get('value')
+    return abs(bonus)
+
 def get_main_contact(lst: List):
     main_contact = [res for res in lst if res['is_main']]
 
@@ -49,3 +58,4 @@ def get_full_bonus_customer(dct: Dict):
     res = full_bonus[0].get('values')[0].get('value')
 
     return res
+
