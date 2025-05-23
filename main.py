@@ -82,7 +82,7 @@ async def get_info(req: Request):
                                                 f'<a href="https://hite.amocrm.ru/leads/{lead_id}">{lead_id}</a> / '
                                                 f'Контакт id '
                                                 f'<a href="https://hite.amocrm.ru/contacts/{main_contact_id}">{main_contact_id}</a>\n'
-                                                f'Сумма сделки - {lead_price}, бонусов начислено\списано - {int(lead_bonus)-int(lead_bonus_off)}\n\n'
+                                                f'Сумма сделки - {lead_price}, бонусов {"начислено" if int(lead_bonus) - int(lead_bonus_off) >= 0 else "списано"} - {int(lead_bonus)-int(lead_bonus_off)}\n\n'
                                                 f'Прошлое значение чистого выкупа - {last_full_price}\n'
                                                 f'Прошлое значение бонусов на балансе - {last_full_bonus}\n\n'
                                                 f'Добавлено в чистый выкуп - {int(lead_price) - int(lead_bonus)}\n'
