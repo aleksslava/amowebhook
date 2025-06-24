@@ -36,7 +36,7 @@ def get_customer_id(dct: Dict):
     return customer.get('id')
 
 def get_full_price_customer(dct: Dict):
-    custom_fields_list = dct.get('custom_fields_values')
+    custom_fields_list = dct.get('custom_fields_values', [])
 
     full_price = [res for res in custom_fields_list if res['field_id'] == 1105022]
 
@@ -48,7 +48,7 @@ def get_full_price_customer(dct: Dict):
     return res
 
 def get_full_bonus_customer(dct: Dict):
-    custom_fields_list = dct.get('custom_fields_values')
+    custom_fields_list = dct.get('custom_fields_values', [])
 
     full_bonus = [res for res in custom_fields_list if res['field_id'] == 971580]
 
