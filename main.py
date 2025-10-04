@@ -34,6 +34,12 @@ amo_api = AmoCRMWrapper(
 @app.post('/')
 async def get_info(req: Request):
     data = await req.form()
+    partner_id = int(data.get('catalogs[add][0][custom_fields][0][values][0][value]'))
+    bonus = int(data.get('catalogs[add][0][custom_fields][2][values][0][value]'))
+    cash = int(data.get('catalogs[add][0][custom_fields][1][values][0][value]'))
+    logger.error(f'id покупателя {partner_id}')
+    logger.error(f'бонусов {bonus}')
+    logger.error(f'Сумма документа {cash}')
 
     logger.error(dict(data))
     # lead_id = data.get('leads[add][0][id]')
