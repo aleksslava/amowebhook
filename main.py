@@ -34,7 +34,8 @@ amo_api = AmoCRMWrapper(
 @app.post('/')
 async def get_info(req: Request):
     data = await req.form()
-    logger.error(data.items())
+
+    logger.error(dict(data))
     # lead_id = data.get('leads[add][0][id]')
     #
     # lead = amo_api.get_lead_with_contacts(lead_id=lead_id)
