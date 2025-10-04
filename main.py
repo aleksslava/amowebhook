@@ -49,12 +49,13 @@ async def get_info(req: Request):
                                             new_price=new_price)
 
         await bot.send_message(chat_id=config.admin_chat_id,
-                               text=f'В покупателя id{customer_id}, добавлен чистый выкуп {purified_price} руб.\n'
-                                    f'Запись в логе бонусов id{list_id}')
+                               text=f'В покупателя id <a href="https://hite.amocrm.ru/customers/detail/{customer_id}">{customer_id}</a>.'
+                                    f', добавлен чистый выкуп {purified_price} руб.\n'
+                                    f'Запись в логе бонусов id <a href="https://hite.amocrm.ru/catalogs/2244/detail/{list_id}">{list_id}</a>.')
     else:
         await bot.send_message(chat_id=config.admin_chat_id,
-                               text=f'Произошла ошибка при добавлении чистого выкупа в покупателя id{customer_id}\n'
-                                    f'Запись в логе бонусов id{list_id}')
+                               text=f'Произошла ошибка при добавлении чистого выкупа в покупателя id <a href="https://hite.amocrm.ru/customers/detail/{customer_id}">{customer_id}</a>.\n'
+                                    f'Запись в логе бонусов id <a href="https://hite.amocrm.ru/catalogs/2244/detail/{list_id}">{list_id}</a>.')
 
 
 
