@@ -37,6 +37,7 @@ async def get_info(req: Request):
     customer_id = int(data.get('catalogs[add][0][custom_fields][0][values][0][value]'))
     lead_bonus = int(data.get('catalogs[add][0][custom_fields][2][values][0][value]'))
     lead_price = int(data.get('catalogs[add][0][custom_fields][1][values][0][value]'))
+    list_id = int(data.get('catalogs[add][0][id]'))
     purified_price = lead_price - lead_bonus
 
     customer_obj = amo_api.get_customer_by_id(customer_id)
@@ -48,12 +49,14 @@ async def get_info(req: Request):
                                             new_price=new_price)
 
         await bot.send_message(chat_id=config.admin_chat_id,
-                               text=f'В покупателя id{customer_id}, добавлен чистый выкуп {purified_price} руб.')
+                               text=f'В покупателя id{customer_id}, добавлен чистый выкуп {purified_price} руб.\n'
+                                    f'Запись в логе бонусов id{list_id}')
     else:
         await bot.send_message(chat_id=config.admin_chat_id,
-                               text=f'Произошла ошибка при добавлении чистого выкупа в покупателя id{customer_id}')
+                               text=f'Произошла ошибка при добавлении чистого выкупа в покупателя id{customer_id}\n'
+                                    f'Запись в логе бонусов id{list_id}')
 
-    logger.error(dict(data))
+
 
 
 
