@@ -14,7 +14,7 @@ logging.basicConfig(
                '[%(asctime)s] - %(name)s - %(message)s')
 
 config = load_config()
-bot = Bot(token=config.tg_bot.token, parse_mode=ParseMode('HTML'))
+bot = Bot(token=config.tg_bot.token)
 
 app = FastAPI()
 
