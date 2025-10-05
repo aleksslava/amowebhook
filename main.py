@@ -14,7 +14,7 @@ logging.basicConfig(
                '[%(asctime)s] - %(name)s - %(message)s')
 
 config = load_config()
-bot = Bot(token=config.tg_bot.token)
+bot = Bot(token=config.tg_bot.token, parse_mode=ParseMode('HTML'))
 
 app = FastAPI()
 
@@ -39,26 +39,28 @@ async def get_info(req: Request):
     lead_price = int(data.get('catalogs[add][0][custom_fields][1][values][0][value]'))
     list_id = int(data.get('catalogs[add][0][id]'))
     purified_price = lead_price - lead_bonus
+    logger.error(lead_bonus)
 
-    customer_obj = amo_api.get_customer_by_id(customer_id)
-    if customer_obj[0]:
-        last_full_price = get_full_price_customer(customer_obj[1])
-        new_price = purified_price + int(last_full_price)
-
-        amo_api.put_full_price_to_customer(id_customer=customer_id,
-                                            new_price=new_price)
-
-        await bot.send_message(chat_id=config.admin_chat_id,
-                               text=f'В покупателя id <a href="https://hite.amocrm.ru/customers/detail/{customer_id}">{customer_id}</a>.'
-                                    f', добавлен чистый выкуп {purified_price} руб.\n'
-                                    f'Запись в логе бонусов id <a href="https://hite.amocrm.ru/catalogs/2244/detail/{list_id}">{list_id}</a>.')
-    else:
-        await bot.send_message(chat_id=config.admin_chat_id,
-                               text=f'Произошла ошибка при добавлении чистого выкупа в покупателя id <a href="https://hite.amocrm.ru/customers/detail/{customer_id}">{customer_id}</a>.\n'
-                                    f'Запись в логе бонусов id <a href="https://hite.amocrm.ru/catalogs/2244/detail/{list_id}">{list_id}</a>.')
-
-
-
+    # customer_obj = amo_api.get_customer_by_id(customer_id)
+    # if customer_obj[0]:
+    #     last_full_price = get_full_price_customer(customer_obj[1])
+    #     new_price = purified_price + int(last_full_price)
+    #
+    #     amo_api.put_full_price_to_customer(id_customer=customer_id,
+    #                                         new_price=new_price)
+    #
+    #     await bot.send_message(chat_id=config.admin_chat_id,
+    #                            text=f'В покупателя id '
+    #                                 f'<a href="https://hite.amocrm.ru/customers/detail/{customer_id}">{customer_id}</a>.'
+    #                                 f', добавлен чистый выкуп {purified_price} руб.\n'
+    #                                 f'Запись в логе бонусов id <a href="https://hite.amocrm.ru/catalogs/2244/detail/{list_id}">{list_id}</a>.')
+    # else:
+    #     await bot.send_message(chat_id=config.admin_chat_id,
+    #                            text=f'Произошла ошибка при добавлении чистого выкупа в покупателя id <a href="https://hite.amocrm.ru/customers/detail/{customer_id}">{customer_id}</a>.\n'
+    #                                 f'Запись в логе бонусов id <a href="https://hite.amocrm.ru/catalogs/2244/detail/{list_id}">{list_id}</a>.')
+    #
+    #
+    #
 
 
 
