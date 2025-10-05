@@ -40,6 +40,7 @@ async def get_info(req: Request):
     list_id = int(data.get('catalogs[add][0][id]'))
     purified_price = lead_price - lead_bonus
     logger.error(lead_bonus)
+    logger.error(dict(data))
 
     # customer_obj = amo_api.get_customer_by_id(customer_id)
     # if customer_obj[0]:
