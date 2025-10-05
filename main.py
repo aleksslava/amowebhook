@@ -56,7 +56,7 @@ async def get_info(req: Request):
                 purified_price = lead_price - abs(lead_bonus)
             else:
                 purified_price = lead_price + abs(lead_bonus)
-            new_price = purified_price - int(last_full_price)
+            new_price = int(last_full_price) - purified_price
 
         # Записываем новое значение чистого выкупа в покупателя
         amo_api.put_full_price_to_customer(id_customer=customer_id,
