@@ -44,6 +44,8 @@ async def get_info(req: Request):
         # Получаем данные покупателя из АМО
         customer_obj = amo_api.get_customer_by_id(customer_id)
         last_full_price = get_full_price_customer(customer_obj[1])
+        if last_full_price is None:
+            last_full_price = 0
 
         if type_document == 'Отгрузка': # Отгрузка
             if lead_bonus < 0:
