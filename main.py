@@ -32,14 +32,14 @@ amo_api = AmoCRMWrapper(
 
 @app.post('/')
 async def get_info(req: Request):
+    # Получаем данные из webhook
+    data = await req.form()
+    customer_id = int(data.get('catalogs[add][0][custom_fields][0][values][0][value]'))
+    lead_bonus = int(data.get('catalogs[add][0][custom_fields][2][values][0][value]'))
+    lead_price = int(data.get('catalogs[add][0][custom_fields][1][values][0][value]'))
+    list_id = int(data.get('catalogs[add][0][id]'))
+    type_document = data.get('catalogs[add][0][custom_fields][3][values][0][value]')
     try:
-        # Получаем данные из webhook
-        data = await req.form()
-        customer_id = int(data.get('catalogs[add][0][custom_fields][0][values][0][value]'))
-        lead_bonus = int(data.get('catalogs[add][0][custom_fields][2][values][0][value]'))
-        lead_price = int(data.get('catalogs[add][0][custom_fields][1][values][0][value]'))
-        list_id = int(data.get('catalogs[add][0][id]'))
-        type_document = data.get('catalogs[add][0][custom_fields][3][values][0][value]')
 
         # Получаем данные покупателя из АМО
         customer_obj = amo_api.get_customer_by_id(customer_id)
