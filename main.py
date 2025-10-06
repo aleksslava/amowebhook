@@ -1,3 +1,5 @@
+from pprint import pprint
+
 from fastapi import FastAPI, Request
 from aiogram import Bot
 import logging
@@ -34,47 +36,48 @@ amo_api = AmoCRMWrapper(
 async def get_info(req: Request):
     # Получаем данные из webhook
     data = await req.form()
-    customer_id = int(data.get('catalogs[add][0][custom_fields][0][values][0][value]'))
-    lead_bonus = int(data.get('catalogs[add][0][custom_fields][2][values][0][value]'))
-    lead_price = int(data.get('catalogs[add][0][custom_fields][1][values][0][value]'))
-    list_id = int(data.get('catalogs[add][0][id]'))
-    type_document = data.get('catalogs[add][0][custom_fields][3][values][0][value]')
-    try:
-
-        # Получаем данные покупателя из АМО
-        customer_obj = amo_api.get_customer_by_id(customer_id)
-        last_full_price = get_full_price_customer(customer_obj[1])
-        if last_full_price is None:
-            last_full_price = 0
-
-        if type_document == 'Отгрузка': # Отгрузка
-            if lead_bonus < 0:
-                purified_price = lead_price + abs(lead_bonus)
-            else:
-                purified_price = lead_price - abs(lead_bonus)
-            new_price = purified_price + int(last_full_price)
-        else:  # возврат
-            if lead_bonus < 0:
-                purified_price = lead_price - abs(lead_bonus)
-            else:
-                purified_price = lead_price + abs(lead_bonus)
-            new_price = int(last_full_price) - purified_price
-
-        # Записываем новое значение чистого выкупа в покупателя
-        amo_api.put_full_price_to_customer(id_customer=customer_id,
-                                           new_price=new_price)
-
-        # Отправляем уведомление в чат бота
-        await bot.send_message(chat_id=config.admin_chat_id,
-                               text=f'В покупателя id '
-                                    f'<a href="https://hite.amocrm.ru/customers/detail/{customer_id}">{customer_id}</a>.'
-                                    f', добавлен чистый выкуп {purified_price} руб.\n'
-                                    f'Запись в логе бонусов id <a href="https://hite.amocrm.ru/catalogs/2244/detail/{list_id}">{list_id}</a>.',
-                               parse_mode=ParseMode.HTML)
-    except BaseException as error:
-
-        await bot.send_message(chat_id=config.admin_chat_id,
-                               text=f'Не удалось изменить чистый выкуп в покупателе <a href="https://hite.amocrm.ru/customers/detail/{customer_id}">{customer_id}</a>.\n'
-                                    f'Запись в логе бонусов id <a href="https://hite.amocrm.ru/catalogs/2244/detail/{list_id}">{list_id}</a>.\n'
-                                    f'Ошибка - {error}',
-                               parse_mode=ParseMode.HTML)
+    pprint(dict(data))
+    # customer_id = int(data.get('catalogs[add][0][custom_fields][0][values][0][value]'))
+    # lead_bonus = int(data.get('catalogs[add][0][custom_fields][2][values][0][value]'))
+    # lead_price = int(data.get('catalogs[add][0][custom_fields][1][values][0][value]'))
+    # list_id = int(data.get('catalogs[add][0][id]'))
+    # type_document = data.get('catalogs[add][0][custom_fields][3][values][0][value]')
+    # try:
+    #
+    #     # Получаем данные покупателя из АМО
+    #     customer_obj = amo_api.get_customer_by_id(customer_id)
+    #     last_full_price = get_full_price_customer(customer_obj[1])
+    #     if last_full_price is None:
+    #         last_full_price = 0
+    #
+    #     if type_document == 'Отгрузка': # Отгрузка
+    #         if lead_bonus < 0:
+    #             purified_price = lead_price + abs(lead_bonus)
+    #         else:
+    #             purified_price = lead_price - abs(lead_bonus)
+    #         new_price = purified_price + int(last_full_price)
+    #     else:  # возврат
+    #         if lead_bonus < 0:
+    #             purified_price = lead_price - abs(lead_bonus)
+    #         else:
+    #             purified_price = lead_price + abs(lead_bonus)
+    #         new_price = int(last_full_price) - purified_price
+    #
+    #     # Записываем новое значение чистого выкупа в покупателя
+    #     amo_api.put_full_price_to_customer(id_customer=customer_id,
+    #                                        new_price=new_price)
+    #
+    #     # Отправляем уведомление в чат бота
+    #     await bot.send_message(chat_id=config.admin_chat_id,
+    #                            text=f'В покупателя id '
+    #                                 f'<a href="https://hite.amocrm.ru/customers/detail/{customer_id}">{customer_id}</a>.'
+    #                                 f', добавлен чистый выкуп {purified_price} руб.\n'
+    #                                 f'Запись в логе бонусов id <a href="https://hite.amocrm.ru/catalogs/2244/detail/{list_id}">{list_id}</a>.',
+    #                            parse_mode=ParseMode.HTML)
+    # except BaseException as error:
+    #
+    #     await bot.send_message(chat_id=config.admin_chat_id,
+    #                            text=f'Не удалось изменить чистый выкуп в покупателе <a href="https://hite.amocrm.ru/customers/detail/{customer_id}">{customer_id}</a>.\n'
+    #                                 f'Запись в логе бонусов id <a href="https://hite.amocrm.ru/catalogs/2244/detail/{list_id}">{list_id}</a>.\n'
+    #                                 f'Ошибка - {error}',
+    #                            parse_mode=ParseMode.HTML)
