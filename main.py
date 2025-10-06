@@ -36,7 +36,7 @@ amo_api = AmoCRMWrapper(
 async def get_info(req: Request):
     # Получаем данные из webhook
     data = await req.form()
-    pprint(dict(data))
+    logger.error(dict(data))
     # customer_id = int(data.get('catalogs[add][0][custom_fields][0][values][0][value]'))
     # lead_bonus = int(data.get('catalogs[add][0][custom_fields][2][values][0][value]'))
     # lead_price = int(data.get('catalogs[add][0][custom_fields][1][values][0][value]'))
