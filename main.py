@@ -43,14 +43,14 @@ async def get_info(req: Request):
     lead_price = int(data.get('catalogs[add][0][custom_fields][2][values][0][value]', default=0))
     list_id = int(data.get('catalogs[add][0][id]', default=0))
     type_document = data.get('catalogs[add][0][custom_fields][5][values][0][value]', default='Отгрузка')
-
+    logger.info(
+        f'customer_id = {customer_id}, lead_bonus = {lead_bonus}, lead_price = {lead_price}, list_id = {list_id}'
+        f'type_document = {type_document}'
+    )
     try:
-
         # Получаем данные покупателя из АМО
         customer_obj = amo_api.get_customer_by_id(customer_id)
         last_full_price = get_full_price_customer(customer_obj[1])
-        if last_full_price is None:
-            last_full_price = 0
 
         if type_document == 'Отгрузка': # Отгрузка
             if lead_bonus < 0:
@@ -64,6 +64,8 @@ async def get_info(req: Request):
             else:
                 purified_price = lead_price + abs(lead_bonus)
             new_price = int(last_full_price) - purified_price
+
+        logger.info(f'new_price = {new_price}')
 
         # Записываем новое значение чистого выкупа в покупателя
         amo_api.put_full_price_to_customer(id_customer=customer_id,
