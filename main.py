@@ -40,7 +40,8 @@ async def get_info(req: Request):
 
     customer_id = int(data.get('catalogs[add][0][custom_fields][1][values][0][value]'))
     lead_bonus = int(data.get('catalogs[add][0][custom_fields][3][values][0][value]', default=0))
-    lead_price = int(data.get('catalogs[add][0][custom_fields][2][values][0][value]', default=0))
+    lead_price = float(data.get('catalogs[add][0][custom_fields][2][values][0][value]', default=0))
+    lead_price = int(lead_price // 1)
     list_id = int(data.get('catalogs[add][0][id]', default=0))
     type_document = data.get('catalogs[add][0][custom_fields][5][values][0][value]', default='Отгрузка')
     logger.info(
