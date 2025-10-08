@@ -58,14 +58,20 @@ async def get_info(req: Request):
             else:
                 purified_price = lead_price - abs(lead_bonus)
             new_price = purified_price + int(last_full_price)
-        else:  # возврат
+            logger.info(f'new_price = {new_price}')
+        elif type_document == 'Возврат':  # возврат
             if lead_bonus < 0:
                 purified_price = lead_price - abs(lead_bonus)
             else:
                 purified_price = lead_price + abs(lead_bonus)
             new_price = int(last_full_price) - purified_price
-
-        logger.info(f'new_price = {new_price}')
+            logger.info(f'new_price = {new_price}')
+        elif type_document == 'Корректировка':
+            purified_price = lead_price
+            new_price = int(last_full_price) + purified_price
+            logger.info(f'new_price = {new_price}')
+        else:
+            raise ValueError(f'Ошибка типа документа. Тип {type_document}')
 
         # Записываем новое значение чистого выкупа в покупателя
         amo_api.put_full_price_to_customer(id_customer=customer_id,
