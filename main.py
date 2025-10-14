@@ -1,3 +1,5 @@
+from pprint import pprint
+
 from fastapi import FastAPI, Request
 from aiogram import Bot
 import logging
