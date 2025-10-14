@@ -1,12 +1,9 @@
-from pprint import pprint
-
 from fastapi import FastAPI, Request
 from aiogram import Bot
 import logging
 from settings.amo_api import AmoCRMWrapper
 from settings.settings import load_config
-from utils.utils import (get_lead_bonus, get_main_contact, get_customer_id, get_full_price_customer,
-                         get_full_bonus_customer, get_lead_bonus_off)
+from utils.utils import get_lead_total, get_bonus_total
 from aiogram.enums.parse_mode import ParseMode
 
 logger = logging.getLogger(__name__)
@@ -36,59 +33,49 @@ amo_api = AmoCRMWrapper(
 async def get_info(req: Request):
     # Получаем данные из webhook
     data = await req.form()
-    logger.info(dict(data))
-
-    customer_id = int(data.get('catalogs[add][0][custom_fields][1][values][0][value]'))
-    lead_bonus = int(data.get('catalogs[add][0][custom_fields][3][values][0][value]', default=0))
-    lead_price = float(data.get('catalogs[add][0][custom_fields][2][values][0][value]', default=0))
-    lead_price = int(lead_price // 1)
+    logger.info(f'Получен webhook: {dict(data)}')
     list_id = int(data.get('catalogs[add][0][id]', default=0))
-    type_document = data.get('catalogs[add][0][custom_fields][5][values][0][value]', default='Отгрузка')
-    logger.info(
-        f'customer_id = {customer_id}, lead_bonus = {lead_bonus}, lead_price = {lead_price}, list_id = {list_id}'
-        f'type_document = {type_document}'
-    )
-    try:
-        # Получаем данные покупателя из АМО
-        customer_obj = amo_api.get_customer_by_id(customer_id)
-        last_full_price = get_full_price_customer(customer_obj[1])
+    customer_id = int(data.get('catalogs[add][0][custom_fields][1][values][0][value]'))
 
-        if type_document == 'Отгрузка': # Отгрузка
-            if lead_bonus < 0:
-                purified_price = lead_price + abs(lead_bonus)
-            else:
-                purified_price = lead_price - abs(lead_bonus)
-            new_price = purified_price + int(last_full_price)
-            logger.info(f'new_price = {new_price}')
-        elif type_document == 'Возврат':  # возврат
-            if lead_bonus < 0:
-                purified_price = lead_price - abs(lead_bonus)
-            else:
-                purified_price = lead_price + abs(lead_bonus)
-            new_price = int(last_full_price) - purified_price
-            logger.info(f'new_price = {new_price}')
-        elif type_document == 'Корректировка':
-            purified_price = lead_price
-            new_price = int(last_full_price) + purified_price
-            logger.info(f'new_price = {new_price}')
-        else:
-            raise ValueError(f'Ошибка типа документа. Тип {type_document}')
+    # Запрашиваем список записей покупателя
+    response = amo_api.get_catalog_elements_by_partnerid(partner_id=customer_id)
 
-        # Записываем новое значение чистого выкупа в покупателя
-        amo_api.put_full_price_to_customer(id_customer=customer_id,
-                                           new_price=new_price)
+    # считаем суммарное значение отгрузок\возвратов
+    elements_list = response.get('_embedded').get('elements')
+    elements_total = list(map(get_lead_total, elements_list))
+    sum_total = sum(elements_total)
+    logger.info(f'Список значений чистого выкупа покупателя: {elements_total}, сумма: {sum_total}')
 
-        # Отправляем уведомление в чат бота
+    # считаем суммарное значение бонусов
+    bonus_total = list(map(get_bonus_total, elements_list))
+    sum_bonus = sum(bonus_total)
+    sum_response = sum_total - sum_bonus
+    logger.info(f'Список значений бонусов покупателя: {bonus_total}, сумма: {sum_bonus}')
+    logger.info(f'Итоговая сумма чистого выкупа: {sum_response}')
+    # записываем новое значение в сумму чистого выкупа
+    response = amo_api.put_full_price_to_customer(id_customer=customer_id, new_price=sum_response)
+    if response.status_code == 200:
         await bot.send_message(chat_id=config.admin_chat_id,
-                               text=f'В покупателя id '
+                               text=f'Новая запись в покупателя id '
                                     f'<a href="https://hite.amocrm.ru/customers/detail/{customer_id}">{customer_id}</a>.'
-                                    f', добавлен чистый выкуп {purified_price} руб.\n'
+                                    f'Список значений отгрузок\вовратов: {elements_total}.\n'
+                                    f'Список начислений\списаний бонусов: {bonus_total}\n'
+                                    f'Итоговый чистый выкуп: {sum_response}'
                                     f'Запись в логе бонусов id <a href="https://hite.amocrm.ru/catalogs/2244/detail/{list_id}">{list_id}</a>.',
                                parse_mode=ParseMode.HTML)
-    except BaseException as error:
-
+    else:
         await bot.send_message(chat_id=config.admin_chat_id,
-                               text=f'Не удалось изменить чистый выкуп в покупателе <a href="https://hite.amocrm.ru/customers/detail/{customer_id}">{customer_id}</a>.\n'
-                                    f'Запись в логе бонусов id <a href="https://hite.amocrm.ru/catalogs/2244/detail/{list_id}">{list_id}</a>.\n'
-                                    f'Ошибка - {error}',
+                               text=f'Не удалось просчитать чистый выкуп в покупателе <a href="https://hite.amocrm.ru/customers/detail/{customer_id}">{customer_id}</a>.\n'
+                                    f'Запись в логе бонусов id <a href="https://hite.amocrm.ru/catalogs/2244/detail/{list_id}">{list_id}</a>.\n',
                                parse_mode=ParseMode.HTML)
+
+
+@app.post('/sheets')
+async def new_column_in_sheet(req: dict):
+    # phone = str(req.get('Телефон')).replace('+', '')
+    # description = str(req.get('Ошибка'))
+    # contact = amo_api.get_contact_by_phone(phone_number=int(phone))[1]
+    # contact_id = contact.get('id')
+
+
+    logger.info(f'{req}')

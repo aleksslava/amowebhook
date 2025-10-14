@@ -218,6 +218,17 @@ class AmoCRMWrapper:
         logger.info(f'Запись ID_telegram: {tg_id} в карту партнёра: {id_customer}\n'
                     f'Статус операции: {response.status_code}')
 
+    def get_catalog_elements_by_partnerid(self, partner_id):
+        catalog_id = 2244
+        url = f'/api/v4/catalogs/{catalog_id}/elements'
+        limit = 250
+        page = 1
+        filter = str(
+            f'filter[custom_fields][1105082][from]={partner_id}&filter[custom_fields][1105082][to]={partner_id}')
+        response = self._base_request(type='get_param', endpoint=url, parameters=filter)
+        logger.info(f'Статус код запроса записей покупателя: {response.status_code}')
+        return response.json()
+
     def get_contact_by_id(self, contact_id) -> tuple:
         url = f'/api/v4/contacts/{contact_id}'
         query = 'with=customers'
@@ -266,9 +277,8 @@ class AmoCRMWrapper:
                  ]
              }]}
         response = self._base_request(type='patch', endpoint=url, data=data)
-
-
-
+        logger.info(f'Статус записи нового чистого выкупа в покупателя: {response.status_code}')
+        return response
 
 
 

@@ -1,5 +1,6 @@
 import logging
 from typing import List, Dict
+from pydantic import BaseModel
 logger = logging.getLogger(__name__)
 
 def get_lead_bonus(lst: List):
@@ -58,4 +59,30 @@ def get_full_bonus_customer(dct: Dict):
     res = full_bonus[0].get('values')[0].get('value')
 
     return res
+
+def get_lead_total(record):
+    field_total_id = 1105084
+    field_type_id = 1105600
+    fields_values = record.get('custom_fields_values')
+    value = 0
+    record_type = ''
+    for field in fields_values:
+        if field.get('field_id') == field_total_id:
+            value = field.get('values')[0].get('value', 0)
+        if field.get('field_id') == field_type_id:
+            record_type = field.get('values')[0].get('value')
+    if record_type == 'Возврат':
+        return -int(value)
+    else:
+        return int(value)
+
+
+def get_bonus_total(record):
+    field_total_id = 1105086
+    fields_values = record.get('custom_fields_values')
+    value = 0
+    for field in fields_values:
+        if field.get('field_id') == field_total_id:
+            value = field.get('values')[0].get('value', 0)
+            return int(value)
 
