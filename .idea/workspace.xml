@@ -4,7 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="8b820332-c861-4cd7-9bae-8972956fe3b0" name="Changes" comment="." />
+    <list default="true" id="8b820332-c861-4cd7-9bae-8972956fe3b0" name="Changes" comment="Изменена логика просчета суммы чистого выкупа">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -18,6 +21,11 @@
     </option>
   </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="clean_total" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -46,6 +54,7 @@
     &quot;Python.amo_api.executor&quot;: &quot;Run&quot;,
     &quot;Python.main (1).executor&quot;: &quot;Run&quot;,
     &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;master&quot;,
     &quot;last_opened_file_path&quot;: &quot;C:/Users/solom/PycharmProjects/amowebhook&quot;,
@@ -58,7 +67,7 @@
       <recent name="C:\Users\solom\PycharmProjects\amowebhook\settings" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.main (1)">
+  <component name="RunManager" selected="Python.test">
     <configuration name="amo_api" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="amowebhook" />
       <option name="ENV_FILES" value="" />
@@ -125,11 +134,35 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="test" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="amowebhook" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/test.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.test" />
         <item itemvalue="Python.main (1)" />
         <item itemvalue="Python.main" />
         <item itemvalue="Python.amo_api" />
+        <item itemvalue="Python.test" />
       </list>
     </recent_temporary>
   </component>
@@ -148,142 +181,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1747505001328</updated>
-    </task>
-    <task id="LOCAL-00007" summary=".">
-      <option name="closed" value="true" />
-      <created>1747518057384</created>
-      <option name="number" value="00007" />
-      <option name="presentableId" value="LOCAL-00007" />
-      <option name="project" value="LOCAL" />
-      <updated>1747518057384</updated>
-    </task>
-    <task id="LOCAL-00008" summary=".">
-      <option name="closed" value="true" />
-      <created>1747518521400</created>
-      <option name="number" value="00008" />
-      <option name="presentableId" value="LOCAL-00008" />
-      <option name="project" value="LOCAL" />
-      <updated>1747518521400</updated>
-    </task>
-    <task id="LOCAL-00009" summary=".">
-      <option name="closed" value="true" />
-      <created>1747518865958</created>
-      <option name="number" value="00009" />
-      <option name="presentableId" value="LOCAL-00009" />
-      <option name="project" value="LOCAL" />
-      <updated>1747518865958</updated>
-    </task>
-    <task id="LOCAL-00010" summary=".">
-      <option name="closed" value="true" />
-      <created>1747519159936</created>
-      <option name="number" value="00010" />
-      <option name="presentableId" value="LOCAL-00010" />
-      <option name="project" value="LOCAL" />
-      <updated>1747519159936</updated>
-    </task>
-    <task id="LOCAL-00011" summary=".">
-      <option name="closed" value="true" />
-      <created>1747519253204</created>
-      <option name="number" value="00011" />
-      <option name="presentableId" value="LOCAL-00011" />
-      <option name="project" value="LOCAL" />
-      <updated>1747519253204</updated>
-    </task>
-    <task id="LOCAL-00012" summary=".">
-      <option name="closed" value="true" />
-      <created>1747519542383</created>
-      <option name="number" value="00012" />
-      <option name="presentableId" value="LOCAL-00012" />
-      <option name="project" value="LOCAL" />
-      <updated>1747519542383</updated>
-    </task>
-    <task id="LOCAL-00013" summary=".">
-      <option name="closed" value="true" />
-      <created>1747519681526</created>
-      <option name="number" value="00013" />
-      <option name="presentableId" value="LOCAL-00013" />
-      <option name="project" value="LOCAL" />
-      <updated>1747519681526</updated>
-    </task>
-    <task id="LOCAL-00014" summary=".">
-      <option name="closed" value="true" />
-      <created>1747519750089</created>
-      <option name="number" value="00014" />
-      <option name="presentableId" value="LOCAL-00014" />
-      <option name="project" value="LOCAL" />
-      <updated>1747519750089</updated>
-    </task>
-    <task id="LOCAL-00015" summary=".">
-      <option name="closed" value="true" />
-      <created>1747520431474</created>
-      <option name="number" value="00015" />
-      <option name="presentableId" value="LOCAL-00015" />
-      <option name="project" value="LOCAL" />
-      <updated>1747520431474</updated>
-    </task>
-    <task id="LOCAL-00016" summary=".">
-      <option name="closed" value="true" />
-      <created>1747520667297</created>
-      <option name="number" value="00016" />
-      <option name="presentableId" value="LOCAL-00016" />
-      <option name="project" value="LOCAL" />
-      <updated>1747520667297</updated>
-    </task>
-    <task id="LOCAL-00017" summary=".">
-      <option name="closed" value="true" />
-      <created>1747521268509</created>
-      <option name="number" value="00017" />
-      <option name="presentableId" value="LOCAL-00017" />
-      <option name="project" value="LOCAL" />
-      <updated>1747521268509</updated>
-    </task>
-    <task id="LOCAL-00018" summary=".">
-      <option name="closed" value="true" />
-      <created>1747521377837</created>
-      <option name="number" value="00018" />
-      <option name="presentableId" value="LOCAL-00018" />
-      <option name="project" value="LOCAL" />
-      <updated>1747521377837</updated>
-    </task>
-    <task id="LOCAL-00019" summary=".">
-      <option name="closed" value="true" />
-      <created>1747521922722</created>
-      <option name="number" value="00019" />
-      <option name="presentableId" value="LOCAL-00019" />
-      <option name="project" value="LOCAL" />
-      <updated>1747521922722</updated>
-    </task>
-    <task id="LOCAL-00020" summary=".">
-      <option name="closed" value="true" />
-      <created>1747522488581</created>
-      <option name="number" value="00020" />
-      <option name="presentableId" value="LOCAL-00020" />
-      <option name="project" value="LOCAL" />
-      <updated>1747522488581</updated>
-    </task>
-    <task id="LOCAL-00021" summary=".">
-      <option name="closed" value="true" />
-      <created>1747575684862</created>
-      <option name="number" value="00021" />
-      <option name="presentableId" value="LOCAL-00021" />
-      <option name="project" value="LOCAL" />
-      <updated>1747575684862</updated>
-    </task>
-    <task id="LOCAL-00022" summary=".">
-      <option name="closed" value="true" />
-      <created>1747580857006</created>
-      <option name="number" value="00022" />
-      <option name="presentableId" value="LOCAL-00022" />
-      <option name="project" value="LOCAL" />
-      <updated>1747580857006</updated>
-    </task>
-    <task id="LOCAL-00023" summary=".">
-      <option name="closed" value="true" />
-      <created>1747587129466</created>
-      <option name="number" value="00023" />
-      <option name="presentableId" value="LOCAL-00023" />
-      <option name="project" value="LOCAL" />
-      <updated>1747587129466</updated>
     </task>
     <task id="LOCAL-00024" summary=".">
       <option name="closed" value="true" />
@@ -541,11 +438,149 @@
       <option name="project" value="LOCAL" />
       <updated>1759660044567</updated>
     </task>
-    <option name="localTasksCounter" value="56" />
+    <task id="LOCAL-00056" summary=".">
+      <option name="closed" value="true" />
+      <created>1759660265838</created>
+      <option name="number" value="00056" />
+      <option name="presentableId" value="LOCAL-00056" />
+      <option name="project" value="LOCAL" />
+      <updated>1759660265838</updated>
+    </task>
+    <task id="LOCAL-00057" summary=".">
+      <option name="closed" value="true" />
+      <created>1759689590730</created>
+      <option name="number" value="00057" />
+      <option name="presentableId" value="LOCAL-00057" />
+      <option name="project" value="LOCAL" />
+      <updated>1759689590730</updated>
+    </task>
+    <task id="LOCAL-00058" summary=".">
+      <option name="closed" value="true" />
+      <created>1759690155642</created>
+      <option name="number" value="00058" />
+      <option name="presentableId" value="LOCAL-00058" />
+      <option name="project" value="LOCAL" />
+      <updated>1759690155642</updated>
+    </task>
+    <task id="LOCAL-00059" summary="добавлена обработка покупателей с суммой выкупа 0">
+      <option name="closed" value="true" />
+      <created>1759747547200</created>
+      <option name="number" value="00059" />
+      <option name="presentableId" value="LOCAL-00059" />
+      <option name="project" value="LOCAL" />
+      <updated>1759747547200</updated>
+    </task>
+    <task id="LOCAL-00060" summary="добавлена обработка покупателей с суммой выкупа 0">
+      <option name="closed" value="true" />
+      <created>1759751270964</created>
+      <option name="number" value="00060" />
+      <option name="presentableId" value="LOCAL-00060" />
+      <option name="project" value="LOCAL" />
+      <updated>1759751270964</updated>
+    </task>
+    <task id="LOCAL-00061" summary="добавлена обработка покупателей с суммой выкупа 0">
+      <option name="closed" value="true" />
+      <created>1759780957183</created>
+      <option name="number" value="00061" />
+      <option name="presentableId" value="LOCAL-00061" />
+      <option name="project" value="LOCAL" />
+      <updated>1759780957183</updated>
+    </task>
+    <task id="LOCAL-00062" summary="добавлена обработка покупателей с суммой выкупа 0">
+      <option name="closed" value="true" />
+      <created>1759781308699</created>
+      <option name="number" value="00062" />
+      <option name="presentableId" value="LOCAL-00062" />
+      <option name="project" value="LOCAL" />
+      <updated>1759781308699</updated>
+    </task>
+    <task id="LOCAL-00063" summary="добавлена обработка покупателей с суммой выкупа 0">
+      <option name="closed" value="true" />
+      <created>1759781895757</created>
+      <option name="number" value="00063" />
+      <option name="presentableId" value="LOCAL-00063" />
+      <option name="project" value="LOCAL" />
+      <updated>1759781895757</updated>
+    </task>
+    <task id="LOCAL-00064" summary="добавлена обработка покупателей с суммой выкупа 0">
+      <option name="closed" value="true" />
+      <created>1759782167790</created>
+      <option name="number" value="00064" />
+      <option name="presentableId" value="LOCAL-00064" />
+      <option name="project" value="LOCAL" />
+      <updated>1759782167790</updated>
+    </task>
+    <task id="LOCAL-00065" summary="добавлена обработка покупателей с суммой выкупа 0">
+      <option name="closed" value="true" />
+      <created>1759817963740</created>
+      <option name="number" value="00065" />
+      <option name="presentableId" value="LOCAL-00065" />
+      <option name="project" value="LOCAL" />
+      <updated>1759817963740</updated>
+    </task>
+    <task id="LOCAL-00066" summary="добавлена обработка покупателей с суммой выкупа 0">
+      <option name="closed" value="true" />
+      <created>1759818241488</created>
+      <option name="number" value="00066" />
+      <option name="presentableId" value="LOCAL-00066" />
+      <option name="project" value="LOCAL" />
+      <updated>1759818241488</updated>
+    </task>
+    <task id="LOCAL-00067" summary="добавлена обработка покупателей с суммой выкупа 0">
+      <option name="closed" value="true" />
+      <created>1759818470941</created>
+      <option name="number" value="00067" />
+      <option name="presentableId" value="LOCAL-00067" />
+      <option name="project" value="LOCAL" />
+      <updated>1759818470941</updated>
+    </task>
+    <task id="LOCAL-00068" summary="добавлена обработка покупателей с суммой выкупа 0">
+      <option name="closed" value="true" />
+      <created>1759819217508</created>
+      <option name="number" value="00068" />
+      <option name="presentableId" value="LOCAL-00068" />
+      <option name="project" value="LOCAL" />
+      <updated>1759819217508</updated>
+    </task>
+    <task id="LOCAL-00069" summary="добавлена обработка покупателей с суммой выкупа 0">
+      <option name="closed" value="true" />
+      <created>1759849591819</created>
+      <option name="number" value="00069" />
+      <option name="presentableId" value="LOCAL-00069" />
+      <option name="project" value="LOCAL" />
+      <updated>1759849591819</updated>
+    </task>
+    <task id="LOCAL-00070" summary="добавлена обработка покупателей с суммой выкупа 0">
+      <option name="closed" value="true" />
+      <created>1759920583289</created>
+      <option name="number" value="00070" />
+      <option name="presentableId" value="LOCAL-00070" />
+      <option name="project" value="LOCAL" />
+      <updated>1759920583289</updated>
+    </task>
+    <task id="LOCAL-00071" summary="добавлена обработка покупателей с суммой выкупа 0">
+      <option name="closed" value="true" />
+      <created>1759933654813</created>
+      <option name="number" value="00071" />
+      <option name="presentableId" value="LOCAL-00071" />
+      <option name="project" value="LOCAL" />
+      <updated>1759933654813</updated>
+    </task>
+    <task id="LOCAL-00072" summary="Изменена логика просчета суммы чистого выкупа">
+      <option name="closed" value="true" />
+      <created>1760451892524</created>
+      <option name="number" value="00072" />
+      <option name="presentableId" value="LOCAL-00072" />
+      <option name="project" value="LOCAL" />
+      <updated>1760451892525</updated>
+    </task>
+    <option name="localTasksCounter" value="73" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="." />
-    <option name="LAST_COMMIT_MESSAGE" value="." />
+    <MESSAGE value="добавлена обработка покупателей с суммой выкупа 0" />
+    <MESSAGE value="Изменена логика просчета суммы чистого выкупа" />
+    <option name="LAST_COMMIT_MESSAGE" value="Изменена логика просчета суммы чистого выкупа" />
   </component>
 </project>

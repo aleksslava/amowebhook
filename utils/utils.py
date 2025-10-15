@@ -85,4 +85,4 @@ def get_bonus_total(record):
         if field.get('field_id') == field_total_id:
             value = field.get('values')[0].get('value', 0)
             return int(value)
-
+    return value

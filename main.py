@@ -59,10 +59,10 @@ async def get_info(req: Request):
     if response.status_code == 200:
         await bot.send_message(chat_id=config.admin_chat_id,
                                text=f'Новая запись в покупателя id '
-                                    f'<a href="https://hite.amocrm.ru/customers/detail/{customer_id}">{customer_id}</a>.'
+                                    f'<a href="https://hite.amocrm.ru/customers/detail/{customer_id}">{customer_id}</a>.\n'
                                     f'Список значений отгрузок\вовратов: {elements_total}.\n'
                                     f'Список начислений\списаний бонусов: {bonus_total}\n'
-                                    f'Итоговый чистый выкуп: {sum_response}'
+                                    f'Итоговый чистый выкуп: {sum_response}\n'
                                     f'Запись в логе бонусов id <a href="https://hite.amocrm.ru/catalogs/2244/detail/{list_id}">{list_id}</a>.',
                                parse_mode=ParseMode.HTML)
     else:
