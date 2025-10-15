@@ -74,10 +74,15 @@ async def get_info(req: Request):
 
 @app.post('/sheets')
 async def new_column_in_sheet(req: Request):
-    # phone = str(req.get('Телефон')).replace('+', '')
-    # description = str(req.get('Ошибка'))
-    # contact = amo_api.get_contact_by_phone(phone_number=int(phone))[1]
-    # contact_id = contact.get('id')
+    response = await req.json()
+    phone = response.get('phone')
+    fullname = response.get('fullName')
+    description = response.get('description')
+    materials = response.get('materialsLink')
+
+    logger.info(f'Номер телефона: {phone},\n'
+                f'ФИО: {fullname}\n'
+                f'Описание проблемы: {description}\n'
+                )
 
 
-    logger.info(f'{req.json()}')
