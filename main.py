@@ -60,8 +60,8 @@ async def get_info(req: Request):
         await bot.send_message(chat_id=config.admin_chat_id,
                                text=f'Новая запись в покупателя id '
                                     f'<a href="https://hite.amocrm.ru/customers/detail/{customer_id}">{customer_id}</a>.\n'
-                                    f'Список значений отгрузок\вовратов: {elements_total}.\n'
-                                    f'Список начислений\списаний бонусов: {bonus_total}\n'
+                                    f'Список значений отгрузок\вовратов:\n{elements_total}.\n'
+                                    f'Список начислений\списаний бонусов:\n{bonus_total}\n'
                                     f'Итоговый чистый выкуп: {sum_response}\n'
                                     f'Запись в логе бонусов id <a href="https://hite.amocrm.ru/catalogs/2244/detail/{list_id}">{list_id}</a>.',
                                parse_mode=ParseMode.HTML)
@@ -73,11 +73,11 @@ async def get_info(req: Request):
 
 
 @app.post('/sheets')
-async def new_column_in_sheet(req: dict):
+async def new_column_in_sheet(req: Request):
     # phone = str(req.get('Телефон')).replace('+', '')
     # description = str(req.get('Ошибка'))
     # contact = amo_api.get_contact_by_phone(phone_number=int(phone))[1]
     # contact_id = contact.get('id')
 
 
-    logger.info(f'{req}')
+    logger.info(f'{req.json()}')
