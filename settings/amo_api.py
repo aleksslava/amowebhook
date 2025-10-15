@@ -242,6 +242,16 @@ class AmoCRMWrapper:
             logger.error('Нет авторизации в AMO_API')
             return False, 'Произошла ошибка на сервере!'
 
+    def add_new_task(self, contact_id, descr, url_materials, time, user_id):
+        url = '/api/v4/tasks'
+        data = {
+            'text': f'Обращение по ошибке чат-бота:\n{descr} + {url_materials}',
+            'complete_till': time,
+            'entity_id': contact_id,
+            'responsible_user_id': user_id
+        }
+        response = self._base_request(type='post', endpoint=url, data=data)
+        return response
 
 
     def get_responsible_user_by_id(self, manager_id: int):

@@ -1,4 +1,4 @@
-from pprint import pprint
+import datetime
 
 from fastapi import FastAPI, Request
 from aiogram import Bot
@@ -75,14 +75,31 @@ async def get_info(req: Request):
 @app.post('/sheets')
 async def new_column_in_sheet(req: Request):
     response = await req.json()
+    time_add = response.get('timestamp')
+    time = datetime.datetime.strptime(time_add, "%d.%m.%Y %H:%M:%S")
+    two_hours = datetime.timedelta(hours=2)
+    time = time + two_hours
+    time = time.timestamp()
+
     phone = response.get('phone')
+    contact = amo_api.get_contact_by_phone(phone)
     fullname = response.get('fullName')
     description = response.get('description')
-    materials = response.get('materialsLink')
+    materials = response.get('materialsLink', '')
+    if contact[0]:
+        contact_id = contact[1].get('id')
+    else:
+        await bot.send_message(chat_id=config.admin_chat_id, text=f'Не получилось найти id контакта.\n'
+                                                                  f'Номер телефона {phone}\n'
+                                                                  f'ФИО: {fullname}')
+        raise ValueError('Не получилось найти id контакта.')
 
-    logger.info(f'Номер телефона: {phone},\n'
-                f'ФИО: {fullname}\n'
-                f'Описание проблемы: {description}\n'
-                )
+
+
+    response = amo_api.add_new_task(contact_id=contact_id, descr=description, url_materials=materials, user_id=9697863,
+                                    time=time)
+    logger.info(response.status_code)
+
+
 
 
