@@ -69,6 +69,7 @@ def get_lead_total(record):
     for field in fields_values:
         if field.get('field_id') == field_total_id:
             value = field.get('values')[0].get('value', 0)
+            value = int(float(value)//1)
         if field.get('field_id') == field_type_id:
             record_type = field.get('values')[0].get('value')
     if record_type == 'Возврат':
@@ -84,5 +85,6 @@ def get_bonus_total(record):
     for field in fields_values:
         if field.get('field_id') == field_total_id:
             value = field.get('values')[0].get('value', 0)
+            value = int(float(value)//1)
             return int(value)
     return value
