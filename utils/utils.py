@@ -88,3 +88,14 @@ def get_bonus_total(record):
             value = int(float(value)//1)
             return int(value)
     return value
+
+def correct_phone(phone_str: str):
+    new_str = ('')
+    for char in phone_str:
+        if char.isnumeric():
+            new_str += char
+    if new_str.startswith('7') or new_str.startswith('8'):
+        new_str = new_str[1:]
+    return new_str
+
+

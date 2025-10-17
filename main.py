@@ -5,7 +5,7 @@ from aiogram import Bot
 import logging
 from settings.amo_api import AmoCRMWrapper
 from settings.settings import load_config
-from utils.utils import get_lead_total, get_bonus_total
+from utils.utils import get_lead_total, get_bonus_total, correct_phone
 from aiogram.enums.parse_mode import ParseMode
 
 logger = logging.getLogger(__name__)
@@ -81,7 +81,8 @@ async def new_column_in_sheet(req: Request):
     time = time + two_hours
     time = time.timestamp()
 
-    phone = response.get('phone')
+    phone = correct_phone(response.get('phone'))
+
     contact = amo_api.get_contact_by_phone(phone)
     fullname = response.get('fullName')
     description = response.get('description')
