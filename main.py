@@ -101,9 +101,10 @@ async def new_column_in_sheet(req: Request):
     logger.info(response.status_code)
 
 @app.post('/a101/turn')
-async def new_column_in_sheet(req: Request):
+async def new_status_a101(req: Request):
     response = await req.json()
     logger.error(response)
+    print(response.status_code)
 
 
 
