@@ -9,7 +9,6 @@ import logging
 from pydantic import json
 from requests.exceptions import JSONDecodeError
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -225,6 +224,16 @@ class AmoCRMWrapper:
         page = 1
         filter = str(
             f'filter[custom_fields][1105082][from]={partner_id}&filter[custom_fields][1105082][to]={partner_id}')
+        response = self._base_request(type='get_param', endpoint=url, parameters=filter)
+        logger.info(f'Статус код запроса записей покупателя: {response.status_code}')
+        return response.json()
+
+    def get_customers_list_if_tg(self):
+        url = f'/api/v4/customers/'
+        limit = 250
+        page = 1
+        filter = str(
+            f'filter[custom_fields][5B1104992][from]=1')
         response = self._base_request(type='get_param', endpoint=url, parameters=filter)
         logger.info(f'Статус код запроса записей покупателя: {response.status_code}')
         return response.json()

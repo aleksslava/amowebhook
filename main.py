@@ -100,6 +100,11 @@ async def new_column_in_sheet(req: Request):
     response = amo_api.add_new_task(contact_id=contact_id, descr=description, url_materials=materials, time=time)
     logger.info(response.status_code)
 
+@app.post('/a101/turn')
+async def new_column_in_sheet(req: Request):
+    response = await req.json()
+    logger.error(response)
+
 
 
 
