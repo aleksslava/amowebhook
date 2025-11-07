@@ -1,4 +1,5 @@
 import datetime
+from pprint import pprint
 
 from fastapi import FastAPI, Request
 from aiogram import Bot
@@ -100,11 +101,19 @@ async def new_column_in_sheet(req: Request):
     response = amo_api.add_new_task(contact_id=contact_id, descr=description, url_materials=materials, time=time)
     logger.info(response.status_code)
 
-@app.post('/a101/turn')
-async def new_status_a101(req: Request):
+
+@app.post('/sheets/marketplace')
+async def new_column_in_sheet(req: Request):
     response = await req.json()
-    logger.error(response)
-    print(response.status_code)
+    pprint(response, indent=4)
+
+    logger.info(response)
+
+# @app.post('/a101/turn')
+# async def new_status_a101(req: Request):
+#     response = await req.json()
+#     logger.error(response)
+#     print(response.status_code)
 
 
 
