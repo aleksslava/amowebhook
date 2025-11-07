@@ -4,10 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="8b820332-c861-4cd7-9bae-8972956fe3b0" name="Changes" comment="обработчик для смены статуса а101">
+    <list default="true" id="8b820332-c861-4cd7-9bae-8972956fe3b0" name="Changes" comment="добавлен обработчик вебхука из таблицы Галии">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/settings/amo_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/settings/amo_api.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -69,7 +68,7 @@
       <recent name="C:\Users\solom\PycharmProjects\amowebhook\settings" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.utils">
+  <component name="RunManager" selected="Python.test">
     <configuration name="amo_api" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="amowebhook" />
       <option name="ENV_FILES" value="" />
@@ -182,8 +181,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.utils" />
         <item itemvalue="Python.test" />
+        <item itemvalue="Python.utils" />
         <item itemvalue="Python.main (1)" />
         <item itemvalue="Python.main" />
         <item itemvalue="Python.amo_api" />
@@ -205,14 +204,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1747505001328</updated>
-    </task>
-    <task id="LOCAL-00035" summary=".">
-      <option name="closed" value="true" />
-      <created>1747593070033</created>
-      <option name="number" value="00035" />
-      <option name="presentableId" value="LOCAL-00035" />
-      <option name="project" value="LOCAL" />
-      <updated>1747593070033</updated>
     </task>
     <task id="LOCAL-00036" summary=".">
       <option name="closed" value="true" />
@@ -598,7 +589,15 @@
       <option name="project" value="LOCAL" />
       <updated>1762502605933</updated>
     </task>
-    <option name="localTasksCounter" value="84" />
+    <task id="LOCAL-00084" summary="добавлен обработчик вебхука из таблицы Галии">
+      <option name="closed" value="true" />
+      <created>1762504836346</created>
+      <option name="number" value="00084" />
+      <option name="presentableId" value="LOCAL-00084" />
+      <option name="project" value="LOCAL" />
+      <updated>1762504836346</updated>
+    </task>
+    <option name="localTasksCounter" value="85" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -610,6 +609,7 @@
     <MESSAGE value="Добавлена обработка символов в номере телефона" />
     <MESSAGE value="Изменена обработка бонусов при типе записи &quot;Корректировка&quot;. Такие бонусы обрабатываться не будут." />
     <MESSAGE value="обработчик для смены статуса а101" />
-    <option name="LAST_COMMIT_MESSAGE" value="обработчик для смены статуса а101" />
+    <MESSAGE value="добавлен обработчик вебхука из таблицы Галии" />
+    <option name="LAST_COMMIT_MESSAGE" value="добавлен обработчик вебхука из таблицы Галии" />
   </component>
 </project>

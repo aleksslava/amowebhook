@@ -107,8 +107,9 @@ async def new_column_in_sheet(req: Request):
     response = await req.json()
     lead_id = int(response.get('data').get('lead_id'))
     items = response.get('data').get('items')
-    put_to_lead = amo_api.add_catalog_elements_to_lead(lead_id=lead_id, elements=items)
-    logger.info(put_to_lead.status_code)
+    items = filter(lambda x: float(x.get('quantity')) >= 1, items)
+    response_put_to_lead = amo_api.add_catalog_elements_to_lead(lead_id=lead_id, elements=items)
+    logger.info(response_put_to_lead)
 
 # @app.post('/a101/turn')
 # async def new_status_a101(req: Request):
