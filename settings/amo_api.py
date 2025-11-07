@@ -309,6 +309,24 @@ class AmoCRMWrapper:
         logger.info(f'Статус записи нового чистого выкупа в покупателя: {response.status_code}')
         return response
 
+    def add_catalog_elements_to_lead(self, lead_id, elements: list[dict,]):
+        url = f'/api/v4/leads/{lead_id}/link'
+        data = []
+        for element in elements:
+            element_id = int(element.get('id'))
+            quantity = int(float(element.get('quantity')))
+            element_for_record = {
+                'to_entity_id': element_id,
+                "to_entity_type": "catalog_elements",
+                "metadata": {
+                    "quantity": quantity,
+                    "catalog_id": 1682
+                }
+            }
+            data.append(element_for_record)
+        response = self._base_request(type='post', endpoint=url, data=data)
+        return response.json()
+
 
 
 

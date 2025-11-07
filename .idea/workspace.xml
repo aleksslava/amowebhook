@@ -6,6 +6,8 @@
   <component name="ChangeListManager">
     <list default="true" id="8b820332-c861-4cd7-9bae-8972956fe3b0" name="Changes" comment="обработчик для смены статуса а101">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/settings/amo_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/settings/amo_api.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -203,14 +205,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1747505001328</updated>
-    </task>
-    <task id="LOCAL-00034" summary=".">
-      <option name="closed" value="true" />
-      <created>1747592793029</created>
-      <option name="number" value="00034" />
-      <option name="presentableId" value="LOCAL-00034" />
-      <option name="project" value="LOCAL" />
-      <updated>1747592793029</updated>
     </task>
     <task id="LOCAL-00035" summary=".">
       <option name="closed" value="true" />
@@ -596,7 +590,15 @@
       <option name="project" value="LOCAL" />
       <updated>1761987884334</updated>
     </task>
-    <option name="localTasksCounter" value="83" />
+    <task id="LOCAL-00083" summary="обработчик для смены статуса а101">
+      <option name="closed" value="true" />
+      <created>1762502605933</created>
+      <option name="number" value="00083" />
+      <option name="presentableId" value="LOCAL-00083" />
+      <option name="project" value="LOCAL" />
+      <updated>1762502605933</updated>
+    </task>
+    <option name="localTasksCounter" value="84" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">

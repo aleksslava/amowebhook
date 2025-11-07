@@ -105,9 +105,10 @@ async def new_column_in_sheet(req: Request):
 @app.post('/sheets/marketplace')
 async def new_column_in_sheet(req: Request):
     response = await req.json()
-    pprint(response, indent=4)
-
-    logger.info(response)
+    lead_id = int(response.get('data').get('lead_id'))
+    items = response.get('data').get('items')
+    put_to_lead = amo_api.add_catalog_elements_to_lead(lead_id=lead_id, elements=items)
+    logger.info(put_to_lead.status_code)
 
 # @app.post('/a101/turn')
 # async def new_status_a101(req: Request):
