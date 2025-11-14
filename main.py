@@ -32,7 +32,7 @@ amo_api = AmoCRMWrapper(
 )
 
 
-@app.post('/')
+@app.post('/bonus_price')
 async def get_info(req: Request):
     # Получаем данные из webhook
     data = await req.form()
