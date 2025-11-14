@@ -112,7 +112,7 @@ async def new_column_in_sheet(req: Request):
     logger.info(response_put_to_lead)
 
 
-@app.post('/market/yandex')
+@app.post('/market/new_order')
 async def new_order_from_yandex(req:Request):
     response = await req.json()
     await bot.send_message(chat_id=config.admin_chat_id,
