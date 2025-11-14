@@ -111,11 +111,13 @@ async def new_column_in_sheet(req: Request):
     response_put_to_lead = amo_api.add_catalog_elements_to_lead(lead_id=lead_id, elements=items)
     logger.info(response_put_to_lead)
 
-# @app.post('/a101/turn')
-# async def new_status_a101(req: Request):
-#     response = await req.json()
-#     logger.error(response)
-#     print(response.status_code)
+
+@app.post('/market/yandex')
+async def new_order_from_yandex(req:Request):
+    response = await req.json()
+    await bot.send_message(chat_id=config.admin_chat_id,
+                           text=response)
+
 
 
 
