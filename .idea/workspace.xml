@@ -204,14 +204,6 @@
       <option name="presentableId" value="Default" />
       <updated>1747505001328</updated>
     </task>
-    <task id="LOCAL-00039" summary=".">
-      <option name="closed" value="true" />
-      <created>1748015431190</created>
-      <option name="number" value="00039" />
-      <option name="presentableId" value="LOCAL-00039" />
-      <option name="project" value="LOCAL" />
-      <updated>1748015431190</updated>
-    </task>
     <task id="LOCAL-00040" summary=".">
       <option name="closed" value="true" />
       <created>1748016713833</created>
@@ -596,7 +588,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763123476709</updated>
     </task>
-    <option name="localTasksCounter" value="88" />
+    <task id="LOCAL-00088" summary="Добавлен endpoint для уведомлений с маркета">
+      <option name="closed" value="true" />
+      <created>1763134230819</created>
+      <option name="number" value="00088" />
+      <option name="presentableId" value="LOCAL-00088" />
+      <option name="project" value="LOCAL" />
+      <updated>1763134230819</updated>
+    </task>
+    <option name="localTasksCounter" value="89" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">

@@ -31,6 +31,10 @@ amo_api = AmoCRMWrapper(
     amocrm_refresh_token=config.amo_config.amocrm_refresh_token
 )
 
+@app.get('/')
+async def test(req: Request):
+    return 'Привет, заглушка для теста!'
+
 
 @app.post('/bonus_price')
 async def get_info(req: Request):
