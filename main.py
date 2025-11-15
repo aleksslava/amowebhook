@@ -33,7 +33,9 @@ amo_api = AmoCRMWrapper(
 
 @app.get('/')
 async def test(req: Request):
-    return 'Привет, заглушка для теста!'
+    client_host = req.client.host
+    return {"client_host": client_host, "item_id": 'test'}
+
 
 
 @app.post('/bonus_price')
