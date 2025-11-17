@@ -125,6 +125,14 @@ async def new_order_from_yandex(req:Request):
                            text=response)
     return {"message": "Уведомление получено!"}
 
+@app.post('/market/new_order')
+async def new_order_from_yandex(req:Request):
+    response = await req.json()
+    response = str(response)
+    await bot.send_message(chat_id=config.admin_chat_id,
+                           text=response)
+    return {"message": "Уведомление получено!"}
+
 
 
 
