@@ -123,7 +123,11 @@ async def new_order_from_yandex(req:Request):
     response = str(response)
     await bot.send_message(chat_id=config.admin_chat_id,
                            text=response)
-    return {"message": "Уведомление получено!"}
+    return {
+        "version": "1.0.0",
+        "name": "name",
+        "time": "2025-01-16T10:09:49.759084017Z"
+        }
 
 @app.post('/market/new_order')
 async def new_order_from_yandex(req:Request):
@@ -131,7 +135,11 @@ async def new_order_from_yandex(req:Request):
     response = str(response)
     await bot.send_message(chat_id=config.admin_chat_id,
                            text=response)
-    return {"message": "Уведомление получено!"}
+    return {
+        "version": "1.0.0",
+        "name": "name",
+        "time": "2025-01-16T10:09:49.759084017Z"
+        }
 
 
 
