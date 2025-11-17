@@ -42,7 +42,6 @@ async def test(req: Request):
 async def get_info(req: Request):
     # Получаем данные из webhook
     data = await req.form()
-    logger.info(f'Получен webhook: {dict(data)}')
     list_id = int(data.get('catalogs[add][0][id]', default=0))
     customer_id = int(data.get('catalogs[add][0][custom_fields][1][values][0][value]'))
 
@@ -118,7 +117,7 @@ async def new_column_in_sheet(req: Request):
     logger.info(response_put_to_lead)
 
 
-@app.post('/market/new_order')
+@app.post('/market/new_order/notification')
 async def new_order_from_yandex(req:Request):
     response = await req.json()
     await bot.send_message(chat_id=config.admin_chat_id,
