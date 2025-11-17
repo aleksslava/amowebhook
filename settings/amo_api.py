@@ -327,6 +327,50 @@ class AmoCRMWrapper:
         response = self._base_request(type='post', endpoint=url, data=data)
         return response.json()
 
+    def create_new_contact(self, first_name: str, last_name: str, phone: str):
+        url = '/api/v4/contacts'
+        data = [{
+            'first_name': first_name,
+            'last_name': last_name,
+            'responsible_user_id': 11047749,
+            'custom_fields_values': [
+                {"field_id": 671750,  # Поле проект
+                 "values": [
+                     {"value": phone},
+                 ]
+                 }
+            ],
+        }]
+        response = self._base_request(type='post', endpoint=url, data=data)
+        contact_id = response.json().get('_embedded').get('contacts')[0].get('id')
+        return contact_id
+
+    def send_lead_to_amo(self, contact_id: int, custom_fields_data: list):
+        url = f'/api/v4/leads'
+        data = [{
+            'name': 'Заказ с чат_бота',
+            'pipeline_id': 25020,
+            'created_by': 0,
+            'status_id': 17566048,
+            'responsible_user_id': 453498,
+            'custom_fields_values': custom_fields_data,
+            '_embedded': {
+                'tags': [
+                    {
+                    'id': 563936
+                    }
+                ],
+                'contacts': [
+                    {
+                        'id': contact_id
+                    }
+                ]
+            }
+
+        },]
+        response = self._base_request(type='post', endpoint=url, data=data)
+        return response.json()
+
 
 
 

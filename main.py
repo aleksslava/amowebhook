@@ -1,12 +1,12 @@
 import datetime
-from pprint import pprint
 
+import requests
 from fastapi import FastAPI, Request
 from aiogram import Bot
 import logging
 from settings.amo_api import AmoCRMWrapper
 from settings.settings import load_config
-from utils.utils import get_lead_total, get_bonus_total, correct_phone
+from utils.utils import get_lead_total, get_bonus_total, correct_phone, Order
 from aiogram.enums.parse_mode import ParseMode
 
 logger = logging.getLogger(__name__)
@@ -120,12 +120,27 @@ async def new_column_in_sheet(req: Request):
 @app.post('/market/new_order/notification')
 async def new_order_from_yandex(req:Request):
     response = await req.json()
-    response = str(response)
+    order_id = response.get('orderId')
     await bot.send_message(chat_id=config.admin_chat_id,
                            text=response)
+    url_order = f'https://api.partner.market.yandex.ru/v2/campaigns/{config.magazne_id}/orders/{order_id}'
+    order_data = requests.get(url=url_order, headers={'Api-Key': config.yandex_api_key}).json()
+    order_data = Order(order_data=order_data)
+
+    url_bayer = f'https://api.partner.market.yandex.ru/v2/campaigns/{config.magazne_id}/orders/{order_id}/buyer'
+    buyer_info = requests.get(url=url_bayer, headers={'Api-Key': config.yandex_api_key}).json()
+    buyer_phone = buyer_info.get('phone')
+
+    contact_id = amo_api.create_new_contact(first_name=order_data.buyer_firstname,
+                                            last_name=order_data.buyer_lastname,
+                                            phone=buyer_phone)
+    logger.info(f'Создан контакт id {contact_id}')
+    new_lead = amo_api.send_lead_to_amo(contact_id=contact_id, custom_fields_data=[])
+    logger.info("Создана новая сделка")
+
     return {
         "version": "1.0.0",
-        "name": "name",
+        "name": "Amowebhooks",
         "time": "2025-01-16T10:09:49.759084017Z"
         }
 

@@ -27,6 +27,8 @@ class Config:
     tg_bot: TgBot
     amo_config: AmoConfig
     admin_chat_id: str
+    yandex_api_key: str
+    magazne_id: str
 
 
 # Функция создания экземпляра класса config
@@ -48,5 +50,7 @@ def load_config(path: str | None = os.path.abspath('./.env')):
             amocrm_refresh_token=env("AMOCRM_REFRESH_TOKEN"),
             amocrm_secret_code=env("AMOCRM_SECRET")
         ),
-        admin_chat_id=str(env('ADMIN_ID'))
+        admin_chat_id=str(env('ADMIN_ID')),
+        yandex_api_key=env('YANDEX_API'),
+        magazne_id=env('MAGAZINE_ID')
     )
