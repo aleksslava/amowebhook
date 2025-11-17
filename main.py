@@ -120,6 +120,7 @@ async def new_column_in_sheet(req: Request):
 @app.post('/market/new_order/notification')
 async def new_order_from_yandex(req:Request):
     response = await req.json()
+    response = str(response)
     await bot.send_message(chat_id=config.admin_chat_id,
                            text=response)
 
