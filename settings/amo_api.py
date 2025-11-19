@@ -334,7 +334,7 @@ class AmoCRMWrapper:
             'last_name': last_name,
             'responsible_user_id': 11047749,
             'custom_fields_values': [
-                {"field_id": 671750,  # Поле проект
+                {"field_id": 671750,
                  "values": [
                      {"value": phone},
                  ]
@@ -368,6 +368,19 @@ class AmoCRMWrapper:
             }
 
         },]
+        response = self._base_request(type='post', endpoint=url, data=data)
+        return response.json()
+
+    def add_new_note_to_lead(self, lead_id, text):
+        url = f'/api/v4/leads/{lead_id}/notes'
+        data = [
+            {
+                'note_type': 'common',
+                'params': {
+                    'text': text
+                }
+            }
+        ]
         response = self._base_request(type='post', endpoint=url, data=data)
         return response.json()
 

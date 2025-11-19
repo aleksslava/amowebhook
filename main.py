@@ -126,6 +126,7 @@ async def new_order_from_yandex(req:Request):
     url_order = f'https://api.partner.market.yandex.ru/v2/campaigns/{config.magazne_id}/orders/{order_id}'
     order_data = requests.get(url=url_order, headers={'Api-Key': config.yandex_api_key}).json()
     order_data = Order(order_data=order_data)
+    order_data.get_buyer()
 
     url_bayer = f'https://api.partner.market.yandex.ru/v2/campaigns/{config.magazne_id}/orders/{order_id}/buyer'
     buyer_info = requests.get(url=url_bayer, headers={'Api-Key': config.yandex_api_key}).json()
@@ -137,6 +138,9 @@ async def new_order_from_yandex(req:Request):
     logger.info(f'Создан контакт id {contact_id}')
     new_lead = amo_api.send_lead_to_amo(contact_id=contact_id, custom_fields_data=[])
     logger.info("Создана новая сделка")
+    lead_id = new_lead.get('_embedded').get('leads')[0].get('id')
+
+    amo_api.add_new_note_to_lead(lead_id=lead_id, text=order_data.order_items + order_data.address)
 
     return {
         "version": "1.0.0",

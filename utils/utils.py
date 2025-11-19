@@ -121,17 +121,19 @@ class Order:
     def get_items(self):
         items_list = self.order_data.get('items')
         items_res = 'Состав заказа:\n\n'
-        total = self.order_data.get('itemsTotal')
+        total = self.order_data.get('itemsTotal', 0)
         for item in items_list:
-            item_price = int(item.get('buyerPrice'))
-            count = int(item.get('count'))
+            item_price = int(item.get('buyerPrice'), 0)
+            count = int(item.get('count'), 0)
             item_sku = item.get('shopSku')
             items_res += f'{item_sku}: {count} шт. по  {item_price} руб. = {item_price*count} руб.\n'
-        items_res += f'\nИтого: {total}'
+        items_res += f'\nИтого: {total}\n'
         return items_res
 
     def get_delivery_parameters(self):
         raw_adress = self.order_data.get('delivery').get('address')
+        if raw_adress is None:
+            raise ValueError
         city = raw_adress.get('city')
         country = raw_adress.get('country')
         street = raw_adress.get('street')
