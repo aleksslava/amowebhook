@@ -336,8 +336,10 @@ class AmoCRMWrapper:
             'custom_fields_values': [
                 {"field_id": 671750,
                  "values": [
-                     {"value": phone},
-                 ]
+                     {'enum_code': 'WORK',
+                      'enum_id': 1583036,
+                      "value": phone
+                      },]
                  }
             ],
         }]
@@ -345,15 +347,21 @@ class AmoCRMWrapper:
         contact_id = response.json().get('_embedded').get('contacts')[0].get('id')
         return contact_id
 
-    def send_lead_to_amo(self, contact_id: int, custom_fields_data: list):
+    def send_lead_to_amo(self, contact_id: int, order_id: str):
         url = f'/api/v4/leads'
         data = [{
-            'name': 'Заказ с чат_бота',
+            'name': 'Заказ с маркета',
             'pipeline_id': 25020,
             'created_by': 0,
             'status_id': 17566048,
-            'responsible_user_id': 453498,
-            'custom_fields_values': custom_fields_data,
+            'responsible_user_id': 11047749,
+            'custom_fields_values': [
+                {"field_id": 1101072,  # Поле id маркетплейса
+                 "values": [
+                     {"value": order_id},
+                 ]
+                 }
+                ],
             '_embedded': {
                 'tags': [
                     {
@@ -371,8 +379,9 @@ class AmoCRMWrapper:
         response = self._base_request(type='post', endpoint=url, data=data)
         return response.json()
 
-    def add_new_note_to_lead(self, lead_id, text):
+    def add_new_note_to_lead(self, lead_id, text, order_id):
         url = f'/api/v4/leads/{lead_id}/notes'
+        market_order_url = f'https://partner.market.yandex.ru/order/{order_id}?partnerId=182087723'
         data = [
             {
                 'note_type': 'common',

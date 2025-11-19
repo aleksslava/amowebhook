@@ -125,8 +125,8 @@ class Order:
         for item in items_list:
             item_price = int(item.get('buyerPrice', 0))
             count = int(item.get('count', 0))
-            item_sku = item.get('shopSku')
-            items_res += f'{item_sku}: {count} шт. по  {item_price} руб. = {item_price*count} руб.\n'
+            item_name = item.get('offerName')
+            items_res += f'{item_name}: {count} шт. по  {item_price} руб. = {item_price*count} руб.\n'
         items_res += f'\nИтого: {total}\n'
         return items_res
 
