@@ -6,8 +6,6 @@
   <component name="ChangeListManager">
     <list default="true" id="8b820332-c861-4cd7-9bae-8972956fe3b0" name="Changes" comment="Добавлен endpoint для уведомлений с маркета">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/settings/amo_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/settings/amo_api.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utils/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/utils.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -206,22 +204,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1747505001328</updated>
-    </task>
-    <task id="LOCAL-00048" summary=".">
-      <option name="closed" value="true" />
-      <created>1759610496642</created>
-      <option name="number" value="00048" />
-      <option name="presentableId" value="LOCAL-00048" />
-      <option name="project" value="LOCAL" />
-      <updated>1759610496642</updated>
-    </task>
-    <task id="LOCAL-00049" summary=".">
-      <option name="closed" value="true" />
-      <created>1759611026505</created>
-      <option name="number" value="00049" />
-      <option name="presentableId" value="LOCAL-00049" />
-      <option name="project" value="LOCAL" />
-      <updated>1759611026505</updated>
     </task>
     <task id="LOCAL-00050" summary=".">
       <option name="closed" value="true" />
@@ -599,7 +581,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763390464392</updated>
     </task>
-    <option name="localTasksCounter" value="97" />
+    <task id="LOCAL-00097" summary="Добавлен endpoint для уведомлений с маркета">
+      <option name="closed" value="true" />
+      <created>1763558412605</created>
+      <option name="number" value="00097" />
+      <option name="presentableId" value="LOCAL-00097" />
+      <option name="project" value="LOCAL" />
+      <updated>1763558412605</updated>
+    </task>
+    <task id="LOCAL-00098" summary="Добавлен endpoint для уведомлений с маркета">
+      <option name="closed" value="true" />
+      <created>1763559044973</created>
+      <option name="number" value="00098" />
+      <option name="presentableId" value="LOCAL-00098" />
+      <option name="project" value="LOCAL" />
+      <updated>1763559044973</updated>
+    </task>
+    <option name="localTasksCounter" value="99" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
