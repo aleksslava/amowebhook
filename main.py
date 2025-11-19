@@ -122,7 +122,7 @@ async def new_order_from_yandex(req:Request):
     response = await req.json()
     order_id = response.get('orderId')
     await bot.send_message(chat_id=config.admin_chat_id,
-                           text=response)
+                           text=str(response))
     url_order = f'https://api.partner.market.yandex.ru/v2/campaigns/{config.magazne_id}/orders/{order_id}'
     order_data = requests.get(url=url_order, headers={'Api-Key': config.yandex_api_key}).json()
     order_data = Order(order_data=order_data)
