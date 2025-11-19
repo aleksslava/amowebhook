@@ -337,7 +337,7 @@ class AmoCRMWrapper:
                 {"field_id": 671750,
                  "values": [
                      {'enum_code': 'WORK',
-                      "value": phone
+                      "value": str(phone)
                       },]
                  }
             ],
