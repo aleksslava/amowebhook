@@ -127,8 +127,6 @@ async def new_order_from_yandex(req:Request):
         url_order = f'https://api.partner.market.yandex.ru/v2/campaigns/{config.magazne_id}/orders/{order_id}'
         order_data = requests.get(url=url_order, headers={'Api-Key': config.yandex_api_key}).json()
         logger.info(f'Статус ответа на запрос заказа в Яндекс: {order_data.status_code}')
-        if order_data.status_code != 200:
-            raise ConnectionError
         order_data = Order(order_data=order_data)
         order_data.get_buyer()
 
