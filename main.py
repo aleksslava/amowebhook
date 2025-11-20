@@ -150,7 +150,7 @@ async def new_order_from_yandex(req:Request):
     return {
         "version": "1.0.0",
         "name": "Amowebhooks",
-        "time": datetime.now()
+        "time": '2025-11-20T11:09:26.246Z'
         }
 
 
