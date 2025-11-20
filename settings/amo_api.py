@@ -357,7 +357,7 @@ class AmoCRMWrapper:
             'custom_fields_values': [
                 {"field_id": 1101072,  # Поле id маркетплейса
                  "values": [
-                     {"value": order_id},
+                     {"value": str(order_id)},
                  ]
                  }
                 ],
