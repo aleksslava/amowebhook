@@ -344,7 +344,7 @@ class AmoCRMWrapper:
         }]
         response = self._base_request(type='post', endpoint=url, data=data)
         contact_id = response.json().get('_embedded').get('contacts')[0].get('id')
-        return contact_id
+        return int(contact_id)
 
     def send_lead_to_amo(self, contact_id: int, order_id: str):
         url = f'/api/v4/leads'
