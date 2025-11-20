@@ -343,7 +343,6 @@ class AmoCRMWrapper:
             ],
         }]
         response = self._base_request(type='post', endpoint=url, data=data)
-        print(response)
         contact_id = response.json().get('_embedded').get('contacts')[0].get('id')
         return contact_id
 

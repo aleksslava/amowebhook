@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 
 import requests
 from fastapi import FastAPI, Request
@@ -119,49 +119,43 @@ async def new_column_in_sheet(req: Request):
 
 @app.post('/market/new_order/notification')
 async def new_order_from_yandex(req:Request):
-    # try:
-    #     response = await req.json()
-    #     order_id = response.get('orderId')
-    #     await bot.send_message(chat_id=config.admin_chat_id,
-    #                            text=str(response))
-    #     url_order = f'https://api.partner.market.yandex.ru/v2/campaigns/{config.magazne_id}/orders/{order_id}'
-    #     order_data = requests.get(url=url_order, headers={'Api-Key': config.yandex_api_key}).json()
-    #     order_data = Order(order_data=order_data)
-    #     order_data.get_buyer()
-    #
-    #     url_bayer = f'https://api.partner.market.yandex.ru/v2/campaigns/{config.magazne_id}/orders/{order_id}/buyer'
-    #     buyer_info = requests.get(url=url_bayer, headers={'Api-Key': config.yandex_api_key}).json()
-    #     buyer_phone = buyer_info.get('phone')
-    #
-    #     contact_id = amo_api.create_new_contact(first_name=order_data.buyer_firstname,
-    #                                             last_name=order_data.buyer_lastname,
-    #                                             phone=buyer_phone)
-    #     logger.info(f'Создан контакт id {contact_id}')
-    #     new_lead = amo_api.send_lead_to_amo(contact_id=contact_id, order_id=order_id)
-    #     logger.info("Создана новая сделка")
-    #     lead_id = new_lead.get('_embedded').get('leads')[0].get('id')
-    #
-    #     amo_api.add_new_note_to_lead(lead_id=lead_id, text=order_data.order_items + order_data.address, order_id=order_id)
-    # except BaseException as error:
-    #     logger.error(error)
+    try:
+        response = await req.json()
+        order_id = response.get('orderId')
+        await bot.send_message(chat_id=config.admin_chat_id,
+                               text=str(response))
+        url_order = f'https://api.partner.market.yandex.ru/v2/campaigns/{config.magazne_id}/orders/{order_id}'
+        order_data = requests.get(url=url_order, headers={'Api-Key': config.yandex_api_key}).json()
+        logger.info(f'Статус ответа на запрос заказа в Яндекс: {order_data.status_code}')
+        if order_data.status_code != 200:
+            raise ConnectionError
+        order_data = Order(order_data=order_data)
+        order_data.get_buyer()
+
+        url_bayer = f'https://api.partner.market.yandex.ru/v2/campaigns/{config.magazne_id}/orders/{order_id}/buyer'
+
+        buyer_info = requests.get(url=url_bayer, headers={'Api-Key': config.yandex_api_key}).json().get('result')
+        buyer_phone = buyer_info.get('phone')
+
+        contact_id = amo_api.create_new_contact(first_name=order_data.buyer_firstname,
+                                                last_name=order_data.buyer_lastname,
+                                                phone=buyer_phone)
+        logger.info(f'Создан контакт id {contact_id}')
+        new_lead = amo_api.send_lead_to_amo(contact_id=contact_id, order_id=order_id)
+        lead_id = new_lead.get('_embedded').get('leads')[0].get('id')
+        logger.info(f"Создана новая сделка: {lead_id}")
+
+        amo_api.add_new_note_to_lead(lead_id=lead_id, text=order_data.order_items + order_data.address, order_id=order_id)
+    except BaseException as error:
+        logger.error(error)
 
     return {
         "version": "1.0.0",
         "name": "Amowebhooks",
-        "time": "2025-01-16T10:09:49.759084017Z"
+        "time": datetime.now()
         }
 
-@app.post('/market/new_order')
-async def new_order_from_yandex(req:Request):
-    response = await req.json()
-    response = str(response)
-    await bot.send_message(chat_id=config.admin_chat_id,
-                           text=response)
-    return {
-        "version": "1.0.0",
-        "name": "name",
-        "time": "2025-01-16T10:09:49.759084017Z"
-        }
+
 
 
 
