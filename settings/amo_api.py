@@ -1,4 +1,5 @@
 import pprint
+from logging import Filter
 
 import dotenv
 import jwt
@@ -309,7 +310,7 @@ class AmoCRMWrapper:
         logger.info(f'Статус записи нового чистого выкупа в покупателя: {response.status_code}')
         return response
 
-    def add_catalog_elements_to_lead(self, lead_id, elements: list[dict,]):
+    def add_catalog_elements_to_lead(self, lead_id, elements: filter):
         url = f'/api/v4/leads/{lead_id}/link'
         data = []
         for element in elements:
