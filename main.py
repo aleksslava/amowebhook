@@ -119,6 +119,7 @@ async def new_column_in_sheet(req: Request):
 
 @app.post('/market/new_order/notification')
 async def new_order_from_yandex(req:Request):
+    response = await req.json()
     try:
         response = await req.json()
         order_id = response.get('orderId')
@@ -145,12 +146,13 @@ async def new_order_from_yandex(req:Request):
         amo_api.add_new_note_to_lead(lead_id=lead_id, text=order_data.order_items + order_data.address, order_id=order_id)
     except BaseException as error:
         logger.error(error)
-
-    return {
-        "version": "1.0.0",
-        "name": "Amowebhooks",
-        "time": '2025-11-20T11:09:26.246Z'
-        }
+        logger.error(f'Не получилось обработать вебхук {response}')
+    finally:
+        return {
+            "version": "1.0.0",
+            "name": "Amowebhooks",
+            "time": '2025-11-20T11:09:26.246Z'
+            }
 
 
 
