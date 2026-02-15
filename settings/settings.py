@@ -2,6 +2,10 @@ from environs import Env
 from dataclasses import dataclass
 import os
 
+fields_id: dict = {
+
+}
+
 # Класс с токеном бота телеграмм
 @dataclass
 class TgBot:
@@ -29,6 +33,8 @@ class Config:
     admin_chat_id: str
     yandex_api_key: str
     magazne_id: str
+    google_sheets_webhook_url: str | None
+    google_sheets_token: str | None
 
 
 # Функция создания экземпляра класса config
@@ -52,5 +58,7 @@ def load_config(path: str | None = os.path.abspath('./.env')):
         ),
         admin_chat_id=str(env('ADMIN_ID')),
         yandex_api_key=env('YANDEX_API'),
-        magazne_id=env('MAGAZINE_ID')
+        magazne_id=env('MAGAZINE_ID'),
+        google_sheets_webhook_url=env('GOOGLE_SHEETS_WEBHOOK_URL', default=None),
+        google_sheets_token=env('GOOGLE_SHEETS_TOKEN', default=None)
     )

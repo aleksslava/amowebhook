@@ -1,16 +1,71 @@
 import pprint
 from logging import Filter
+from dataclasses import dataclass
 
 import dotenv
 import jwt
 import requests
 from datetime import datetime
+import time
 import logging
 
 from pydantic import json
 from requests.exceptions import JSONDecodeError
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class AmoLead:
+    lead_id: int
+    lead_price: int | float | None
+    created_at: int | None
+    close_at: int | None
+    contact_id: int | None
+    shipment_at: str | int | None
+    attestate_at: str | int | None
+
+
+@dataclass
+class AmoContact:
+    contact_id: int
+    customer_id: int | None
+
+
+@dataclass
+class AmoResult:
+    lead_obj: AmoLead
+    contact_obj: AmoContact
+
+
+def build_amo_results(
+    leads: list[AmoLead],
+    contacts: list[AmoContact]
+) -> list[AmoResult]:
+    contacts_map: dict[int, AmoContact] = {}
+    for contact in contacts:
+        # При дубликатах контакт id оставляем первый найденный объект.
+        contacts_map.setdefault(contact.contact_id, contact)
+
+    result: list[AmoResult] = []
+    seen_lead_ids: set[int] = set()
+
+    for lead in leads:
+        if lead.lead_id in seen_lead_ids:
+            continue
+
+        contact_id = lead.contact_id
+        if contact_id is None:
+            continue
+
+        contact_obj = contacts_map.get(contact_id)
+        if contact_obj is None:
+            continue
+
+        result.append(AmoResult(lead_obj=lead, contact_obj=contact_obj))
+        seen_lead_ids.add(lead.lead_id)
+
+    return result
 
 
 
@@ -139,6 +194,61 @@ class AmoCRMWrapper:
         else:
             logger.error('Нет авторизации в AMO_API')
             return False, 'Произошла ошибка на сервере!'
+
+    @staticmethod
+    def _get_customer_id_from_contact(contact_data: dict) -> int | None:
+        embedded_data = contact_data.get('_embedded', {})
+
+        customers = embedded_data.get('customers', [])
+        if customers:
+            return customers[0].get('id')
+
+        customer = embedded_data.get('customer')
+        if isinstance(customer, dict):
+            return customer.get('id')
+        if isinstance(customer, list) and customer:
+            return customer[0].get('id')
+
+        return None
+
+    def get_contacts_with_customer(self, limit: int = 250) -> list[AmoContact]:
+        url = '/api/v4/contacts'
+        page = 1
+        all_contacts: list[AmoContact] = []
+
+        while True:
+            query = f'with=customer&limit={limit}&page={page}'
+            response = self._base_request(endpoint=url, type='get_param', parameters=query)
+
+            if response.status_code == 204:
+                break
+
+            if response.status_code != 200:
+                logger.error(
+                    f'Не удалось получить контакты: status_code={response.status_code}, page={page}, body={response.text}'
+                )
+                break
+
+            page_items = response.json().get('_embedded', {}).get('contacts', [])
+            if not page_items:
+                break
+
+            for contact in page_items:
+                all_contacts.append(
+                    AmoContact(
+                        contact_id=contact.get('id'),
+                        customer_id=self._get_customer_id_from_contact(contact)
+                    )
+                )
+
+            if len(page_items) < limit:
+                break
+
+            page += 1
+            # Ограничение API: не более 2 запросов в секунду.
+            time.sleep(0.5)
+
+        return all_contacts
 
     def get_customer_by_phone(self, phone_number) -> tuple:
         contact = self.get_contact_by_phone(phone_number, with_customer=True)
@@ -297,6 +407,81 @@ class AmoCRMWrapper:
         else:
             logger.error('Нет авторизации в AMO_API')
             return False, 'Произошла ошибка на сервере!'
+
+    @staticmethod
+    def _get_main_contact_id(lead_data: dict) -> int | None:
+        contacts = lead_data.get('_embedded', {}).get('contacts', [])
+        if not contacts:
+            return None
+
+        for contact in contacts:
+            if contact.get('is_main'):
+                return contact.get('id')
+
+        return contacts[0].get('id')
+
+    @staticmethod
+    def _get_custom_field_value(lead_data: dict, field_id: int):
+        custom_fields = lead_data.get('custom_fields_values', [])
+        for field in custom_fields:
+            if field.get('field_id') == field_id:
+                values = field.get('values', [])
+                if values:
+                    return values[0].get('value')
+        return None
+
+    def get_pipeline_1628622_status_142_leads(self, limit: int = 250) -> list[AmoLead]:
+        url = '/api/v4/leads'
+        page = 1
+        all_leads: list[AmoLead] = []
+        shipment_field_id = 935651
+        attestate_field_id = 1096322
+
+        while True:
+            query = (
+                f'filter[pipeline_id][]=1628622&'
+                f'filter[statuses][0][pipeline_id]=1628622&'
+                f'filter[statuses][0][status_id]=142&'
+                f'with=contacts&'
+                f'limit={limit}&'
+                f'page={page}'
+            )
+            response = self._base_request(endpoint=url, type='get_param', parameters=query)
+
+            if response.status_code == 204:
+                break
+
+            if response.status_code != 200:
+                logger.error(
+                    f'Не удалось получить сделки: status_code={response.status_code}, page={page}, body={response.text}'
+                )
+                break
+
+            page_items = response.json().get('_embedded', {}).get('leads', [])
+            if not page_items:
+                break
+
+            for lead in page_items:
+                all_leads.append(
+                    AmoLead(
+                        lead_id=lead.get('id'),
+                        lead_price=lead.get('price'),
+                        created_at=lead.get('created_at'),
+                        close_at=lead.get('closed_at'),
+                        contact_id=self._get_main_contact_id(lead),
+                        shipment_at=self._get_custom_field_value(lead, shipment_field_id),
+                        attestate_at=self._get_custom_field_value(lead, attestate_field_id)
+                    )
+                )
+
+            if len(page_items) < limit:
+                break
+
+            page += 1
+            # Ограничение API: не более 2 запросов в секунду.
+            time.sleep(0.5)
+
+        return all_leads
 
     def put_full_price_to_customer(self, id_customer, new_price):
         url = f'/api/v4/customers/{id_customer}'

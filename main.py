@@ -1,10 +1,11 @@
 import datetime
 
 import requests
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
 from aiogram import Bot
 import logging
-from settings.amo_api import AmoCRMWrapper
+from settings.amo_api import AmoCRMWrapper, build_amo_results
+from settings.google_sheets import GoogleSheetsIntegration
 from settings.settings import load_config
 from utils.utils import get_lead_total, get_bonus_total, correct_phone, Order
 from aiogram.enums.parse_mode import ParseMode
@@ -30,11 +31,59 @@ amo_api = AmoCRMWrapper(
     amocrm_access_token=config.amo_config.amocrm_access_token,
     amocrm_refresh_token=config.amo_config.amocrm_refresh_token
 )
+google_sheets = (
+    GoogleSheetsIntegration(config.google_sheets_webhook_url)
+    if config.google_sheets_webhook_url else None
+)
 
-@app.get('/')
-async def test(req: Request):
-    client_host = req.client.host
-    return {"client_host": client_host, "item_id": 'test'}
+
+def _analyze_and_send_to_sheets(token: str, request_id: str):
+    try:
+        if google_sheets is None:
+            logger.error('GOOGLE_SHEETS_WEBHOOK_URL is not configured')
+            return
+
+        leads_list = amo_api.get_pipeline_1628622_status_142_leads()
+        contacts_list = amo_api.get_contacts_with_customer()
+        amo_results = build_amo_results(leads=leads_list, contacts=contacts_list)
+
+        payload = [
+            {
+                'lead_id': amo_result.lead_obj.lead_id,
+                'lead_price': amo_result.lead_obj.lead_price,
+                'created_at': amo_result.lead_obj.created_at,
+                'close_at': amo_result.lead_obj.close_at,
+                'shipment_at': amo_result.lead_obj.shipment_at,
+                'attestate_at': amo_result.lead_obj.attestate_at,
+                'contact_id': amo_result.lead_obj.contact_id,
+                'customer_id': amo_result.contact_obj.customer_id
+            }
+            for amo_result in amo_results
+        ]
+
+        response = google_sheets.send_json(payload=payload, token=token, request_id=request_id)
+        logger.info(
+            f'Analyze request finished: request_id={request_id}, '
+            f'payload_count={len(payload)}, sheets_status={response.status_code}'
+        )
+    except Exception as error:
+        logger.exception(f'Analyze background task failed: request_id={request_id}, error={error}')
+
+
+@app.get('/analyze')
+async def test(background_tasks: BackgroundTasks, token: str, request_id: str):
+    if google_sheets is None:
+        raise HTTPException(status_code=500, detail='GOOGLE_SHEETS_WEBHOOK_URL is not configured')
+    if config.google_sheets_token is None:
+        raise HTTPException(status_code=500, detail='GOOGLE_SHEETS_TOKEN is not configured')
+    if token != config.google_sheets_token:
+        raise HTTPException(status_code=401, detail='Invalid token')
+
+    background_tasks.add_task(_analyze_and_send_to_sheets, token, request_id)
+    return {
+        'status': 'accepted',
+        'request_id': request_id
+    }
 
 
 
