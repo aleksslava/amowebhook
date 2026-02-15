@@ -23,13 +23,14 @@ class AmoLead:
     close_at: int | None
     contact_id: int | None
     shipment_at: str | int | None
-    attestate_at: str | int | None
+
 
 
 @dataclass
 class AmoContact:
     contact_id: int
     customer_id: int | None
+    attestate_at: str | int | None
 
 
 @dataclass
@@ -224,10 +225,11 @@ class AmoCRMWrapper:
         url = '/api/v4/contacts'
         page = 1
         all_contacts: list[AmoContact] = []
+        attestate_field_id = 1096322
 
         while True:
             logger.info(f'Запрос контактов, страница: {page}')
-            query = f'with=customer&limit={limit}&page={page}'
+            query = f'with=customers&limit={limit}&page={page}'
             response = self._base_request(endpoint=url, type='get_param', parameters=query)
 
             if response.status_code == 204:
@@ -247,7 +249,8 @@ class AmoCRMWrapper:
                 all_contacts.append(
                     AmoContact(
                         contact_id=contact.get('id'),
-                        customer_id=self._get_customer_id_from_contact(contact)
+                        customer_id=self._get_customer_id_from_contact(contact),
+                        attestate_at=self._get_custom_field_value(contact, attestate_field_id)
                     )
                 )
 
@@ -445,7 +448,7 @@ class AmoCRMWrapper:
         page = 1
         all_leads: list[AmoLead] = []
         shipment_field_id = 935651
-        attestate_field_id = 1096322
+
 
         while True:
             logger.info(f'Запрос сделок, страница: {page}')
@@ -481,7 +484,7 @@ class AmoCRMWrapper:
                         close_at=lead.get('closed_at'),
                         contact_id=self._get_main_contact_id(lead),
                         shipment_at=self._get_custom_field_value(lead, shipment_field_id),
-                        attestate_at=self._get_custom_field_value(lead, attestate_field_id)
+
                     )
                 )
 
