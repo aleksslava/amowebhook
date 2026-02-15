@@ -54,7 +54,7 @@ def _analyze_and_send_to_sheets(token: str, request_id: str):
                 'created_at': amo_result.lead_obj.created_at,
                 'close_at': amo_result.lead_obj.close_at,
                 'shipment_at': amo_result.lead_obj.shipment_at,
-                'attestate_at': amo_result.lead_obj.attestate_at,
+                'attestate_at': amo_result.contact_obj.attestate_at,
                 'contact_id': amo_result.lead_obj.contact_id,
                 'customer_id': amo_result.contact_obj.customer_id
             }
