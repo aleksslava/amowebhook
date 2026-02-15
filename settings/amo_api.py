@@ -42,28 +42,37 @@ def build_amo_results(
     leads: list[AmoLead],
     contacts: list[AmoContact]
 ) -> list[AmoResult]:
-    contacts_map: dict[int, AmoContact] = {}
-    for contact in contacts:
-        # При дубликатах контакт id оставляем первый найденный объект.
-        contacts_map.setdefault(contact.contact_id, contact)
-
+    logger.info(f'Количество объектов Лид: {len(leads)}')
+    logger.info(f'Количество объектов Контакт: {len(contacts)}')
     result: list[AmoResult] = []
-    seen_lead_ids: set[int] = set()
-
-    for lead in leads:
-        if lead.lead_id in seen_lead_ids:
-            continue
-
-        contact_id = lead.contact_id
-        if contact_id is None:
-            continue
-
-        contact_obj = contacts_map.get(contact_id)
-        if contact_obj is None:
-            continue
-
-        result.append(AmoResult(lead_obj=lead, contact_obj=contact_obj))
-        seen_lead_ids.add(lead.lead_id)
+    for lead_obj in leads:
+        lead_contact_id = lead_obj.contact_id
+        for contact_obj in contacts:
+            if lead_contact_id == contact_obj.contact_id:
+                result.append(AmoResult(lead_obj=lead_obj, contact_obj=contact_obj))
+                continue
+    # contacts_map: dict[int, AmoContact] = {}
+    # for contact in contacts:
+    #     # При дубликатах контакт id оставляем первый найденный объект.
+    #     contacts_map.setdefault(contact.contact_id, contact)
+    #
+    # result: list[AmoResult] = []
+    # seen_lead_ids: set[int] = set()
+    #
+    # for lead in leads:
+    #     if lead.lead_id in seen_lead_ids:
+    #         continue
+    #
+    #     contact_id = lead.contact_id
+    #     if contact_id is None:
+    #         continue
+    #
+    #     contact_obj = contacts_map.get(contact_id)
+    #     if contact_obj is None:
+    #         continue
+    #
+    #     result.append(AmoResult(lead_obj=lead, contact_obj=contact_obj))
+    #     seen_lead_ids.add(lead.lead_id)
 
     return result
 
@@ -245,8 +254,8 @@ class AmoCRMWrapper:
                 break
 
             page += 1
-            # Ограничение API: не более 2 запросов в секунду.
-            time.sleep(0.5)
+            # Ограничение API: не более 3 запросов в секунду.
+            time.sleep(0.3)
 
         return all_contacts
 
