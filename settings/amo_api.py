@@ -250,7 +250,7 @@ class AmoCRMWrapper:
                     AmoContact(
                         contact_id=contact.get('id'),
                         customer_id=self._get_customer_id_from_contact(contact),
-                        attestate_at=self._get_custom_field_value(contact, attestate_field_id)
+                        attestate_at=self._convert_unix_to_sheets_datetime(self._get_custom_field_value(contact, attestate_field_id))
                     )
                 )
 
@@ -443,6 +443,27 @@ class AmoCRMWrapper:
                     return values[0].get('value')
         return None
 
+    @staticmethod
+    def _convert_unix_to_sheets_datetime(timestamp_value):
+        if timestamp_value in (None, ''):
+            return None
+
+        try:
+            unix_timestamp = float(timestamp_value)
+        except (TypeError, ValueError):
+            return timestamp_value
+
+        # Некоторые поля могут приходить в миллисекундах.
+        if unix_timestamp > 10_000_000_000:
+            unix_timestamp /= 1000
+
+        try:
+            dt_value = datetime.fromtimestamp(unix_timestamp)
+        except (OverflowError, OSError, ValueError):
+            return timestamp_value
+
+        return dt_value.strftime('%Y-%m-%d %H:%M:%S')
+
     def get_pipeline_1628622_status_142_leads(self, limit: int = 250) -> list[AmoLead]:
         url = '/api/v4/leads'
         page = 1
@@ -480,10 +501,12 @@ class AmoCRMWrapper:
                     AmoLead(
                         lead_id=lead.get('id'),
                         lead_price=lead.get('price'),
-                        created_at=lead.get('created_at'),
-                        close_at=lead.get('closed_at'),
+                        created_at=self._convert_unix_to_sheets_datetime(lead.get('created_at')),
+                        close_at=self._convert_unix_to_sheets_datetime(lead.get('closed_at')),
                         contact_id=self._get_main_contact_id(lead),
-                        shipment_at=self._get_custom_field_value(lead, shipment_field_id),
+                        shipment_at=self._convert_unix_to_sheets_datetime(
+                            self._get_custom_field_value(lead, shipment_field_id)
+                        ),
 
                     )
                 )
