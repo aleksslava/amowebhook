@@ -226,6 +226,7 @@ class AmoCRMWrapper:
         all_contacts: list[AmoContact] = []
 
         while True:
+            logger.info(f'Запрос контактов, страница: {page}')
             query = f'with=customer&limit={limit}&page={page}'
             response = self._base_request(endpoint=url, type='get_param', parameters=query)
 
@@ -447,6 +448,7 @@ class AmoCRMWrapper:
         attestate_field_id = 1096322
 
         while True:
+            logger.info(f'Запрос сделок, страница: {page}')
             query = (
                 f'filter[pipeline_id][]=1628622&'
                 f'filter[statuses][0][pipeline_id]=1628622&'
