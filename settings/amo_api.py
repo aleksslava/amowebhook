@@ -436,11 +436,12 @@ class AmoCRMWrapper:
     @staticmethod
     def _get_custom_field_value(lead_data: dict, field_id: int):
         custom_fields = lead_data.get('custom_fields_values', [])
-        for field in custom_fields:
-            if field.get('field_id') == field_id:
-                values = field.get('values', [])
-                if values:
-                    return values[0].get('value')
+        if custom_fields is not None:
+            for field in custom_fields:
+                if field.get('field_id') == field_id:
+                    values = field.get('values', [])
+                    if values:
+                        return values[0].get('value')
         return None
 
     @staticmethod
