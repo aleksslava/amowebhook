@@ -1,20 +1,5 @@
 import logging
-from typing import List, Dict
-from pydantic import BaseModel
 logger = logging.getLogger(__name__)
-
-
-
-def get_main_contact(lst: List):
-    main_contact = [res for res in lst if res['is_main']]
-
-    if main_contact is None:
-        return False
-
-    main_contact_id = main_contact[0].get('id')
-    return main_contact_id
-
-
 
 
 def correct_phone(phone_str: str):

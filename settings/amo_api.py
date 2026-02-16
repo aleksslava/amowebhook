@@ -347,16 +347,6 @@ class AmoCRMWrapper:
 
         return all_contacts
 
-    def get_catalog_elements_by_partnerid(self, partner_id):
-        catalog_id = 2244
-        url = f'/api/v4/catalogs/{catalog_id}/elements'
-        limit = 250
-        page = 1
-        filter = str(
-            f'filter[custom_fields][1105082][from]={partner_id}&filter[custom_fields][1105082][to]={partner_id}')
-        response = self._base_request(type='get_param', endpoint=url, parameters=filter)
-        logger.info(f'Статус код запроса записей покупателя: {response.status_code}')
-        return response.json()
 
     def add_new_task(self, contact_id, descr, url_materials, time):
         url = '/api/v4/tasks'
@@ -379,21 +369,6 @@ class AmoCRMWrapper:
         response = self._base_request(type='post', endpoint=url, data=data)
         return response
 
-
-    def get_lead_with_contacts(self, lead_id):
-        url = f'/api/v4/leads/{lead_id}'
-        query = 'with=contacts'
-
-        lead = self._base_request(endpoint=url, type="get_param", parameters=query)
-        if lead.status_code == 200:
-            return True, lead.json()
-
-
-        elif lead.status_code == 204:
-            return False, f'Сделка {lead_id} не найдена'
-        else:
-            logger.error('Нет авторизации в AMO_API')
-            return False, 'Произошла ошибка на сервере!'
 
     @staticmethod
     def _get_main_contact_id(lead_data: dict) -> int | None:
@@ -495,17 +470,7 @@ class AmoCRMWrapper:
 
         return all_leads
 
-    def put_full_price_to_customer(self, id_customer, new_price):
-        url = f'/api/v4/customers/{id_customer}'
-        data = {"custom_fields_values": [
-            {"field_id": 1105022,
-             "values": [
-                 {"value": f"{new_price}"},
-                 ]
-             }]}
-        response = self._base_request(type='patch', endpoint=url, data=data)
-        logger.info(f'Статус записи нового чистого выкупа в покупателя: {response.status_code}')
-        return response
+
 
     def add_catalog_elements_to_lead(self, lead_id, elements: filter):
         url = f'/api/v4/leads/{lead_id}/link'

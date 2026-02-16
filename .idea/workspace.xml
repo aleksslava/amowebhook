@@ -209,22 +209,6 @@
       <option name="presentableId" value="Default" />
       <updated>1747505001328</updated>
     </task>
-    <task id="LOCAL-00073" summary="Изменена логика просчета суммы чистого выкупа">
-      <option name="closed" value="true" />
-      <created>1760512104624</created>
-      <option name="number" value="00073" />
-      <option name="presentableId" value="LOCAL-00073" />
-      <option name="project" value="LOCAL" />
-      <updated>1760512104624</updated>
-    </task>
-    <task id="LOCAL-00074" summary="Изменена логика просчета суммы чистого выкупа">
-      <option name="closed" value="true" />
-      <created>1760516396278</created>
-      <option name="number" value="00074" />
-      <option name="presentableId" value="LOCAL-00074" />
-      <option name="project" value="LOCAL" />
-      <updated>1760516396278</updated>
-    </task>
     <task id="LOCAL-00075" summary="Добавлен webhook для обработки обновлений страницы гугл">
       <option name="closed" value="true" />
       <created>1760517301605</created>
@@ -601,7 +585,23 @@
       <option name="project" value="LOCAL" />
       <updated>1771186560906</updated>
     </task>
-    <option name="localTasksCounter" value="122" />
+    <task id="LOCAL-00122" summary="Исправлена обработка нового заказа с яндекса">
+      <option name="closed" value="true" />
+      <created>1771223837633</created>
+      <option name="number" value="00122" />
+      <option name="presentableId" value="LOCAL-00122" />
+      <option name="project" value="LOCAL" />
+      <updated>1771223837634</updated>
+    </task>
+    <task id="LOCAL-00123" summary="Исправлена обработка нового заказа с яндекса">
+      <option name="closed" value="true" />
+      <created>1771239188745</created>
+      <option name="number" value="00123" />
+      <option name="presentableId" value="LOCAL-00123" />
+      <option name="project" value="LOCAL" />
+      <updated>1771239188745</updated>
+    </task>
+    <option name="localTasksCounter" value="124" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
