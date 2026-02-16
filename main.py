@@ -7,7 +7,7 @@ import logging
 from settings.amo_api import AmoCRMWrapper, build_amo_results
 from settings.google_sheets import GoogleSheetsIntegration
 from settings.settings import load_config
-from utils.utils import get_lead_total, get_bonus_total, correct_phone, Order
+from utils.utils import correct_phone, Order
 from aiogram.enums.parse_mode import ParseMode
 
 logger = logging.getLogger(__name__)
@@ -85,46 +85,6 @@ async def test(background_tasks: BackgroundTasks, token: str, request_id: str):
         'request_id': request_id
     }
 
-
-
-@app.post('/bonus_price')
-async def get_info(req: Request):
-    # Получаем данные из webhook
-    data = await req.form()
-    list_id = int(data.get('catalogs[add][0][id]', default=0))
-    customer_id = int(data.get('catalogs[add][0][custom_fields][1][values][0][value]'))
-
-    # Запрашиваем список записей покупателя
-    response = amo_api.get_catalog_elements_by_partnerid(partner_id=customer_id)
-
-    # считаем суммарное значение отгрузок\возвратов
-    elements_list = response.get('_embedded').get('elements')
-    elements_total = list(map(get_lead_total, elements_list))
-    sum_total = sum(elements_total)
-    logger.info(f'Список значений чистого выкупа покупателя: {elements_total}, сумма: {sum_total}')
-
-    # считаем суммарное значение бонусов
-    bonus_total = list(map(get_bonus_total, elements_list))
-    sum_bonus = sum(bonus_total)
-    sum_response = sum_total - sum_bonus
-    logger.info(f'Список значений бонусов покупателя: {bonus_total}, сумма: {sum_bonus}')
-    logger.info(f'Итоговая сумма чистого выкупа: {sum_response}')
-    # записываем новое значение в сумму чистого выкупа
-    response = amo_api.put_full_price_to_customer(id_customer=customer_id, new_price=sum_response)
-    if response.status_code == 200:
-        await bot.send_message(chat_id=config.admin_chat_id,
-                               text=f'Новая запись в покупателя id '
-                                    f'<a href="https://hite.amocrm.ru/customers/detail/{customer_id}">{customer_id}</a>.\n'
-                                    f'Список значений отгрузок\вовратов:\n{elements_total}.\n'
-                                    f'Список начислений\списаний бонусов:\n{bonus_total}\n'
-                                    f'Итоговый чистый выкуп: {sum_response}\n'
-                                    f'Запись в логе бонусов id <a href="https://hite.amocrm.ru/catalogs/2244/detail/{list_id}">{list_id}</a>.',
-                               parse_mode=ParseMode.HTML)
-    else:
-        await bot.send_message(chat_id=config.admin_chat_id,
-                               text=f'Не удалось просчитать чистый выкуп в покупателе <a href="https://hite.amocrm.ru/customers/detail/{customer_id}">{customer_id}</a>.\n'
-                                    f'Запись в логе бонусов id <a href="https://hite.amocrm.ru/catalogs/2244/detail/{list_id}">{list_id}</a>.\n',
-                               parse_mode=ParseMode.HTML)
 
 
 @app.post('/sheets')

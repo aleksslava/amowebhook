@@ -263,84 +263,6 @@ class AmoCRMWrapper:
 
         return all_contacts
 
-    def get_customer_by_phone(self, phone_number) -> tuple:
-        contact = self.get_contact_by_phone(phone_number, with_customer=True)
-        if contact[0]:  # Проверка, что ответ от сервера получен
-            contact = contact[1]
-            customer_list = contact['_embedded']['customers']
-            if len(customer_list) > 1:
-                return False, 'К номеру телефона привязано более одного партнёра'
-            elif not customer_list:
-                return False, 'К номеру телефона не привязано ни одного партнёра'
-            customer_id = customer_list[0]['id']
-            url = f'/api/v4/customers/{customer_id}'
-            customer = self._base_request(endpoint=url, type='get').json()
-
-            return True, customer
-        else:
-            return contact
-
-    def get_customer_by_id(self, customer_id, with_contacts=False) -> tuple:
-        url = f'/api/v4/customers/{customer_id}'
-        try:
-            if with_contacts:
-                query = str(f'with=contacts')
-                customer = self._base_request(endpoint=url, type='get_param', parameters=query)
-            else:
-                customer = self._base_request(endpoint=url, type='get')
-        except Exception as error:
-            return False, "Произошла ошибка на сервере"
-        if customer.status_code == 200:
-            return True, customer.json()
-        elif customer.status_code == 204:
-            return False, 'Партнёр не найден!'
-        else:
-            logger.error('Нет авторизации в AMO_API')
-            return False, 'Произошла ошибка на сервере!'
-
-    def get_customer_by_tg_id(self, tg_id: int) -> dict:  # Нужно убрать все id полей амо в конфиг
-        url = '/api/v4/customers'
-        field_id = '1104992'
-        query = str(f'filter[custom_fields_values][{field_id}][]={tg_id}')
-        response = self._base_request(endpoint=url, type='get_param', parameters=query)
-
-        if response.status_code == 200:
-            customer_list = response.json()['_embedded']['customers']
-            if len(customer_list) > 1:
-                return {'status_code': False,
-                        'tg_id_in_db': False,
-                        'response': 'Найдено более одного номера tg_id в базе данных\n'
-                                    'Обратитесь к Вашему менеджеру'
-                        }
-            return {'status_code': True,
-                    'tg_id_in_db': True,
-                    'response': customer_list[0]
-                    }
-
-        elif response.status_code == 204:
-            return {'status_code': True,
-                    'tg_id_in_db': False,
-                    'response': 'Телеграмм id не найден в базе данных'
-                    }
-
-        else:
-            return {'status_code': False,
-                    'tg_id_in_db': False,
-                    'response': 'Произошла ошибка на сервере'
-                    }
-
-    def put_tg_id_to_customer(self, id_customer, tg_id):
-        url = f'/api/v4/customers/{id_customer}'
-        data = {"custom_fields_values": [
-            {"field_id": 1104992,
-             "values": [
-                 {"value": f"{tg_id}"},
-                 ]
-             }]}
-        response = self._base_request(type='patch', endpoint=url, data=data)
-        logger.info(f'Запись ID_telegram: {tg_id} в карту партнёра: {id_customer}\n'
-                    f'Статус операции: {response.status_code}')
-
     def get_catalog_elements_by_partnerid(self, partner_id):
         catalog_id = 2244
         url = f'/api/v4/catalogs/{catalog_id}/elements'
@@ -351,29 +273,6 @@ class AmoCRMWrapper:
         response = self._base_request(type='get_param', endpoint=url, parameters=filter)
         logger.info(f'Статус код запроса записей покупателя: {response.status_code}')
         return response.json()
-
-    def get_customers_list_if_tg(self):
-        url = f'/api/v4/customers/'
-        limit = 250
-        page = 1
-        filter = str(
-            f'filter[custom_fields][5B1104992][from]=1')
-        response = self._base_request(type='get_param', endpoint=url, parameters=filter)
-        logger.info(f'Статус код запроса записей покупателя: {response.status_code}')
-        return response.json()
-
-    def get_contact_by_id(self, contact_id) -> tuple:
-        url = f'/api/v4/contacts/{contact_id}'
-        query = 'with=customers'
-        contact = self._base_request(type='get_param', endpoint=url, parameters=query)
-        if contact.status_code == 200:
-            return True, contact.json()
-
-        elif contact.status_code == 204:
-            return False, f'Контакт {contact_id} не найден'
-        else:
-            logger.error('Нет авторизации в AMO_API')
-            return False, 'Произошла ошибка на сервере!'
 
     def add_new_task(self, contact_id, descr, url_materials, time):
         url = '/api/v4/tasks'
@@ -396,15 +295,6 @@ class AmoCRMWrapper:
         response = self._base_request(type='post', endpoint=url, data=data)
         return response
 
-
-    def get_responsible_user_by_id(self, manager_id: int):
-        url = f'/api/v4/users/{manager_id}'
-
-        responsible_manager = self._base_request(endpoint=url, type='get')
-        if responsible_manager.status_code == 200:
-            return responsible_manager.json()
-        else:
-            raise JSONDecodeError
 
     def get_lead_with_contacts(self, lead_id):
         url = f'/api/v4/leads/{lead_id}'
@@ -463,7 +353,7 @@ class AmoCRMWrapper:
         except (OverflowError, OSError, ValueError):
             return timestamp_value
 
-        return dt_value.strftime('%Y-%m-%d %H:%M:%S')
+        return dt_value.strftime('%d-%m-%Y %H:%M:%S')
 
     def get_pipeline_1628622_status_142_leads(self, limit: int = 250) -> list[AmoLead]:
         url = '/api/v4/leads'
