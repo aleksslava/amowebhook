@@ -78,7 +78,7 @@ def _analyze_and_send_to_sheets(token: str, request_id: str):
                 'customer_id': amo_result.contact_obj.customer_id,
                 'time_from_attestate': _format_day_month_year(amo_result.contact_obj.time_from_attestate),
                 'last_buy': _format_day_month_year(amo_result.lead_obj.last_buy),
-                'clean_price': amo_result.lead_obj.clean_price,
+                'clean_price': 0 if amo_result.lead_obj.clean_price is None else amo_result.lead_obj.clean_price,
             }
             for amo_result in amo_results
         ]

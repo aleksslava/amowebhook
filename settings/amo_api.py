@@ -68,6 +68,9 @@ def build_amo_results(
         if created_at_value in (None, ''):
             return None
 
+        if isinstance(created_at_value, datetime):
+            return created_at_value
+
         if isinstance(created_at_value, (int, float)):
             timestamp = float(created_at_value)
             if timestamp > 10_000_000_000:
@@ -78,11 +81,39 @@ def build_amo_results(
                 return None
 
         if isinstance(created_at_value, str):
-            for dt_format in ('%d-%m-%Y %H:%M:%S', '%Y-%m-%d %H:%M:%S'):
+            normalized_value = created_at_value.strip()
+            if not normalized_value:
+                return None
+
+            # Поддержка unix timestamp, переданного строкой.
+            try:
+                timestamp = float(normalized_value.replace(',', '.'))
+                if timestamp > 10_000_000_000:
+                    timestamp /= 1000
                 try:
-                    return datetime.strptime(created_at_value, dt_format)
+                    return datetime.fromtimestamp(timestamp)
+                except (OverflowError, OSError, ValueError):
+                    return None
+            except ValueError:
+                pass
+
+            for dt_format in (
+                '%d-%m-%Y %H:%M:%S',
+                '%Y-%m-%d %H:%M:%S',
+                '%d.%m.%Y %H:%M:%S',
+                '%d-%m-%Y',
+                '%Y-%m-%d',
+                '%d.%m.%Y',
+            ):
+                try:
+                    return datetime.strptime(normalized_value, dt_format)
                 except ValueError:
                     continue
+
+            try:
+                return datetime.fromisoformat(normalized_value.replace('Z', '+00:00')).replace(tzinfo=None)
+            except ValueError:
+                return None
 
         return None
 
