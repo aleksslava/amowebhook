@@ -82,6 +82,7 @@ def _analyze_and_send_to_sheets(token: str, request_id: str):
             }
             for amo_result in amo_results
         ]
+        logger.info(f'Значение случайной строки {payload[15]}')
 
         response = google_sheets.send_json(payload=payload, token=token, request_id=request_id)
         logger.info(
