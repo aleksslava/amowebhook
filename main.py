@@ -56,7 +56,10 @@ def _analyze_and_send_to_sheets(token: str, request_id: str):
                 'shipment_at': amo_result.lead_obj.shipment_at,
                 'attestate_at': amo_result.contact_obj.attestate_at,
                 'contact_id': amo_result.lead_obj.contact_id,
-                'customer_id': amo_result.contact_obj.customer_id
+                'customer_id': amo_result.contact_obj.customer_id,
+                'time_from_attestate': amo_result.contact_obj.time_from_attestate,
+                'last_buy': amo_result.lead_obj.last_buy,
+                'clean_price': amo_result.lead_obj.clean_price,
             }
             for amo_result in amo_results
         ]

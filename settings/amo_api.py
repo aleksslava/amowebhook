@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import dotenv
 import jwt
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 import logging
 
@@ -23,6 +23,16 @@ class AmoLead:
     close_at: int | None
     contact_id: int | None
     shipment_at: str | int | None
+    clean_price: int | float = 0
+    last_buy: timedelta | None = None
+
+    @property
+    def price(self) -> int | float | None:
+        return self.lead_price
+
+    @price.setter
+    def price(self, value: int | float | None) -> None:
+        self.lead_price = value
 
 
 
@@ -31,6 +41,7 @@ class AmoContact:
     contact_id: int
     customer_id: int | None
     attestate_at: str | int | None
+    time_from_attestate: timedelta | None = None
 
 
 @dataclass
@@ -52,28 +63,101 @@ def build_amo_results(
             if lead_contact_id == contact_obj.contact_id:
                 result.append(AmoResult(lead_obj=lead_obj, contact_obj=contact_obj))
                 continue
-    # contacts_map: dict[int, AmoContact] = {}
-    # for contact in contacts:
-    #     # При дубликатах контакт id оставляем первый найденный объект.
-    #     contacts_map.setdefault(contact.contact_id, contact)
-    #
-    # result: list[AmoResult] = []
-    # seen_lead_ids: set[int] = set()
-    #
-    # for lead in leads:
-    #     if lead.lead_id in seen_lead_ids:
-    #         continue
-    #
-    #     contact_id = lead.contact_id
-    #     if contact_id is None:
-    #         continue
-    #
-    #     contact_obj = contacts_map.get(contact_id)
-    #     if contact_obj is None:
-    #         continue
-    #
-    #     result.append(AmoResult(lead_obj=lead, contact_obj=contact_obj))
-    #     seen_lead_ids.add(lead.lead_id)
+
+    def _parse_created_at(created_at_value) -> datetime | None:
+        if created_at_value in (None, ''):
+            return None
+
+        if isinstance(created_at_value, (int, float)):
+            timestamp = float(created_at_value)
+            if timestamp > 10_000_000_000:
+                timestamp /= 1000
+            try:
+                return datetime.fromtimestamp(timestamp)
+            except (OverflowError, OSError, ValueError):
+                return None
+
+        if isinstance(created_at_value, str):
+            for dt_format in ('%d-%m-%Y %H:%M:%S', '%Y-%m-%d %H:%M:%S'):
+                try:
+                    return datetime.strptime(created_at_value, dt_format)
+                except ValueError:
+                    continue
+
+        return None
+
+    def _created_at_sort_key(item: AmoResult) -> tuple[int, datetime]:
+        created_at_dt = _parse_created_at(item.lead_obj.created_at)
+        if created_at_dt is None:
+            return 1, datetime.max
+        return 0, created_at_dt
+
+    def _price_to_number(price_value) -> float:
+        if price_value is None:
+            return 0.0
+        if isinstance(price_value, (int, float)):
+            return float(price_value)
+        if isinstance(price_value, str):
+            try:
+                return float(price_value.replace(',', '.'))
+            except ValueError:
+                return 0.0
+        return 0.0
+
+    result.sort(key=_created_at_sort_key)
+
+    created_at_values = [_parse_created_at(item.lead_obj.created_at) for item in result]
+    cumulative_price_by_contact: dict[int | None, float] = {}
+    index = 0
+    result_len = len(result)
+
+    while index < result_len:
+        current_created_at = created_at_values[index]
+        group_end = index
+
+        while group_end < result_len and created_at_values[group_end] == current_created_at:
+            group_end += 1
+
+        # Для одинакового created_at учитываем только более ранние записи (strictly less-than),
+        # поэтому сначала выставляем clean_price, и только потом добавляем текущую группу в накопления.
+        for position in range(index, group_end):
+            contact_id = result[position].lead_obj.contact_id
+            result[position].lead_obj.clean_price = cumulative_price_by_contact.get(contact_id, 0.0)
+
+        for position in range(index, group_end):
+            contact_id = result[position].lead_obj.contact_id
+            cumulative_price_by_contact[contact_id] = (
+                cumulative_price_by_contact.get(contact_id, 0.0)
+                + _price_to_number(result[position].lead_obj.lead_price)
+            )
+
+        index = group_end
+
+    last_shipment_at_by_contact: dict[int, datetime] = {}
+    for item in result:
+        contact_id = item.lead_obj.contact_id
+        current_shipment_at = _parse_created_at(item.lead_obj.shipment_at)
+
+        if contact_id is None or current_shipment_at is None:
+            item.lead_obj.last_buy = None
+            continue
+
+        previous_shipment_at = last_shipment_at_by_contact.get(contact_id)
+        if previous_shipment_at is None:
+            item.lead_obj.last_buy = None
+        else:
+            item.lead_obj.last_buy = current_shipment_at - previous_shipment_at
+
+        last_shipment_at_by_contact[contact_id] = current_shipment_at
+
+    for item in result:
+        created_at_dt = _parse_created_at(item.lead_obj.created_at)
+        attestate_at_dt = _parse_created_at(item.contact_obj.attestate_at)
+
+        if created_at_dt is None or attestate_at_dt is None:
+            item.contact_obj.time_from_attestate = None
+        else:
+            item.contact_obj.time_from_attestate = created_at_dt - attestate_at_dt
 
     return result
 
