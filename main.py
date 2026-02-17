@@ -9,6 +9,7 @@ from settings.google_sheets import GoogleSheetsIntegration
 from settings.settings import load_config
 from utils.utils import correct_phone, Order
 from aiogram.enums.parse_mode import ParseMode
+from utils.utils import convert_data, conver_timestamp_to_days
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -43,24 +44,6 @@ def _analyze_and_send_to_sheets(token: str, request_id: str):
             logger.error('GOOGLE_SHEETS_WEBHOOK_URL is not configured')
             return
 
-        def _format_day_month_year(value) -> str | None:
-            if value is None:
-                return None
-
-            if isinstance(value, datetime.datetime):
-                return value.strftime('%d-%m-%Y')
-
-            if isinstance(value, datetime.date):
-                return value.strftime('%d-%m-%Y')
-
-            if isinstance(value, datetime.timedelta):
-                sign = '-' if value.total_seconds() < 0 else ''
-                total_days = abs(value.days)
-                years, remainder_days = divmod(total_days, 365)
-                months, days = divmod(remainder_days, 30)
-                return f'{sign}{days:02d}-{months:02d}-{years:04d}'
-
-            return str(value)
 
         leads_list = amo_api.get_pipeline_1628622_status_142_leads()
         contacts_list = amo_api.get_contacts_with_customer()
@@ -70,15 +53,15 @@ def _analyze_and_send_to_sheets(token: str, request_id: str):
             {
                 'lead_id': amo_result.lead_obj.lead_id,
                 'lead_price': amo_result.lead_obj.lead_price,
-                'created_at': amo_result.lead_obj.created_at,
-                'close_at': amo_result.lead_obj.close_at,
-                'shipment_at': amo_result.lead_obj.shipment_at,
-                'attestate_at': amo_result.contact_obj.attestate_at,
+                'created_at': convert_data(amo_result.lead_obj.created_at),
+                'close_at': convert_data(amo_result.lead_obj.close_at),
+                'shipment_at': convert_data(amo_result.lead_obj.shipment_at),
+                'attestate_at': convert_data(amo_result.contact_obj.attestate_at),
                 'contact_id': amo_result.lead_obj.contact_id,
                 'customer_id': amo_result.contact_obj.customer_id,
-                'time_from_attestate': _format_day_month_year(amo_result.contact_obj.time_from_attestate),
-                'last_buy': _format_day_month_year(amo_result.lead_obj.last_buy),
-                'clean_price': 0 if amo_result.lead_obj.clean_price is None else amo_result.lead_obj.clean_price,
+                'clean_price': amo_result.lead_obj.clean_price,
+                'last_buy': conver_timestamp_to_days(amo_result.lead_obj.last_buy),
+                'time_from_attestate': conver_timestamp_to_days(amo_result.contact_obj.time_from_attestate),
             }
             for amo_result in amo_results
         ]
