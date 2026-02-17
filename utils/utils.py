@@ -54,7 +54,7 @@ def convert_data(timestamp: int) -> str :
     if timestamp is None or timestamp == 0:
         return ''
     else:
-        current_time = datetime.datetime.fromtimestamp(timestamp / 1000)
+        current_time = datetime.datetime.fromtimestamp(timestamp)
         current_time = current_time.strftime('%d-%m-%Y %H:%M:%S')
         return current_time
 
@@ -62,5 +62,5 @@ def conver_timestamp_to_days(timestamp: int) -> str:
     if timestamp is None or timestamp == 0:
         return ''
     else:
-        current_time = int(timestamp / 86400000)
+        current_time = int(timestamp / 86400)
         return str(current_time)

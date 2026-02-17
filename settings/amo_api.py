@@ -239,7 +239,7 @@ class AmoCRMWrapper:
         all_contacts: list[AmoContact] = []
         attestate_field_id = 1096322
 
-        while page < 200:
+        while True:
             logger.info(f'Запрос контактов, страница: {page}')
             query = f'with=customers&limit={limit}&page={page}'
             response = self._base_request(endpoint=url, type='get_param', parameters=query)
@@ -271,7 +271,7 @@ class AmoCRMWrapper:
 
             page += 1
             # Ограничение API: не более 3 запросов в секунду.
-            time.sleep(0.3)
+            time.sleep(0.2)
 
         return all_contacts
 
@@ -392,7 +392,7 @@ class AmoCRMWrapper:
 
             page += 1
             # Ограничение API: не более 2 запросов в секунду.
-            time.sleep(0.5)
+            time.sleep(0.2)
 
         return all_leads
 
