@@ -70,18 +70,18 @@ def build_amo_results(
         current_contact = record.contact_obj
 
         # Высчитываем поле "Времени с момента аттестации"
-        if current_contact.attestate_at is not None and current_lead.created_at is not None:
+        if current_contact.attestate_at is not None and current_lead.created_at is not None and current_lead.created_at > current_contact.attestate_at:
             current_contact.time_from_attestate = current_lead.created_at - current_contact.attestate_at
         else:
             current_contact.time_from_attestate = None
 
-        # Считаем поле "Чистый выкуп до текущей покупки дату прошлой покупки
+        # Считаем поле "Чистый выкуп до текущей покупки и дату прошлой покупки
         if index != 0:
             records_by_contact = list(filter(lambda x: x.contact_obj.customer_id == current_contact.customer_id, result[:index]))
             if records_by_contact:
                 clean_price = sum(record.lead_obj.price for record in records_by_contact)
                 current_lead.clean_price = clean_price
-                current_lead.last_buy = records_by_contact[-1].lead_obj.shipment_at
+                current_lead.last_buy = current_lead.shipment_at - records_by_contact[-1].lead_obj.shipment_at
 
             else:
                 current_lead.clean_price = 0

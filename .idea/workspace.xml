@@ -4,7 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="8b820332-c861-4cd7-9bae-8972956fe3b0" name="Changes" comment="Исправлена обработка нового заказа с яндекса" />
+    <list default="true" id="8b820332-c861-4cd7-9bae-8972956fe3b0" name="Changes" comment="Исправлена обработка нового заказа с яндекса">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/settings/amo_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/settings/amo_api.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -203,46 +206,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1747505001328</updated>
-    </task>
-    <task id="LOCAL-00076" summary="Добавлен webhook для обработки обновлений страницы гугл">
-      <option name="closed" value="true" />
-      <created>1760523682407</created>
-      <option name="number" value="00076" />
-      <option name="presentableId" value="LOCAL-00076" />
-      <option name="project" value="LOCAL" />
-      <updated>1760523682407</updated>
-    </task>
-    <task id="LOCAL-00077" summary="Добавлен webhook для обработки обновлений страницы гугл">
-      <option name="closed" value="true" />
-      <created>1760525735045</created>
-      <option name="number" value="00077" />
-      <option name="presentableId" value="LOCAL-00077" />
-      <option name="project" value="LOCAL" />
-      <updated>1760525735045</updated>
-    </task>
-    <task id="LOCAL-00078" summary="Добавлена обработка дробных чисел в сумме документа и бонусах">
-      <option name="closed" value="true" />
-      <created>1760624040420</created>
-      <option name="number" value="00078" />
-      <option name="presentableId" value="LOCAL-00078" />
-      <option name="project" value="LOCAL" />
-      <updated>1760624040420</updated>
-    </task>
-    <task id="LOCAL-00079" summary="Добавлена обработка символов в номере телефона">
-      <option name="closed" value="true" />
-      <created>1760692885684</created>
-      <option name="number" value="00079" />
-      <option name="presentableId" value="LOCAL-00079" />
-      <option name="project" value="LOCAL" />
-      <updated>1760692885684</updated>
-    </task>
-    <task id="LOCAL-00080" summary="Изменена обработка бонусов при типе записи &quot;Корректировка&quot;. Такие бонусы обрабатываться не будут.">
-      <option name="closed" value="true" />
-      <created>1761638173072</created>
-      <option name="number" value="00080" />
-      <option name="presentableId" value="LOCAL-00080" />
-      <option name="project" value="LOCAL" />
-      <updated>1761638173072</updated>
     </task>
     <task id="LOCAL-00081" summary="обработчик для смены статуса а101">
       <option name="closed" value="true" />
@@ -596,7 +559,47 @@
       <option name="project" value="LOCAL" />
       <updated>1771242226794</updated>
     </task>
-    <option name="localTasksCounter" value="125" />
+    <task id="LOCAL-00125" summary="Исправлена обработка нового заказа с яндекса">
+      <option name="closed" value="true" />
+      <created>1771245773006</created>
+      <option name="number" value="00125" />
+      <option name="presentableId" value="LOCAL-00125" />
+      <option name="project" value="LOCAL" />
+      <updated>1771245773006</updated>
+    </task>
+    <task id="LOCAL-00126" summary="Исправлена обработка нового заказа с яндекса">
+      <option name="closed" value="true" />
+      <created>1771249740720</created>
+      <option name="number" value="00126" />
+      <option name="presentableId" value="LOCAL-00126" />
+      <option name="project" value="LOCAL" />
+      <updated>1771249740720</updated>
+    </task>
+    <task id="LOCAL-00127" summary="Исправлена обработка нового заказа с яндекса">
+      <option name="closed" value="true" />
+      <created>1771255284960</created>
+      <option name="number" value="00127" />
+      <option name="presentableId" value="LOCAL-00127" />
+      <option name="project" value="LOCAL" />
+      <updated>1771255284960</updated>
+    </task>
+    <task id="LOCAL-00128" summary="Исправлена обработка нового заказа с яндекса">
+      <option name="closed" value="true" />
+      <created>1771340092942</created>
+      <option name="number" value="00128" />
+      <option name="presentableId" value="LOCAL-00128" />
+      <option name="project" value="LOCAL" />
+      <updated>1771340092943</updated>
+    </task>
+    <task id="LOCAL-00129" summary="Исправлена обработка нового заказа с яндекса">
+      <option name="closed" value="true" />
+      <created>1771341438728</created>
+      <option name="number" value="00129" />
+      <option name="presentableId" value="LOCAL-00129" />
+      <option name="project" value="LOCAL" />
+      <updated>1771341438728</updated>
+    </task>
+    <option name="localTasksCounter" value="130" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
