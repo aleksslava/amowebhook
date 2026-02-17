@@ -81,7 +81,10 @@ def build_amo_results(
             if records_by_contact:
                 clean_price = sum(record.lead_obj.price for record in records_by_contact)
                 current_lead.clean_price = clean_price
-                current_lead.last_buy = current_lead.shipment_at - records_by_contact[-1].lead_obj.shipment_at
+                if current_lead.shipment_at is not None and records_by_contact[-1].lead_obj.shipment_at is not None:
+                    current_lead.last_buy = current_lead.shipment_at - records_by_contact[-1].lead_obj.shipment_at
+                else:
+                    current_lead.last_buy = 0
 
             else:
                 current_lead.clean_price = 0
