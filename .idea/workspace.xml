@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="8b820332-c861-4cd7-9bae-8972956fe3b0" name="Changes" comment="Исправлена обработка нового заказа с яндекса" />
+    <list default="true" id="8b820332-c861-4cd7-9bae-8972956fe3b0" name="Changes" comment="Исправлена обработка нового заказа с яндекса">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -203,30 +205,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1747505001328</updated>
-    </task>
-    <task id="LOCAL-00082" summary="обработчик для смены статуса а101">
-      <option name="closed" value="true" />
-      <created>1761987884334</created>
-      <option name="number" value="00082" />
-      <option name="presentableId" value="LOCAL-00082" />
-      <option name="project" value="LOCAL" />
-      <updated>1761987884334</updated>
-    </task>
-    <task id="LOCAL-00083" summary="обработчик для смены статуса а101">
-      <option name="closed" value="true" />
-      <created>1762502605933</created>
-      <option name="number" value="00083" />
-      <option name="presentableId" value="LOCAL-00083" />
-      <option name="project" value="LOCAL" />
-      <updated>1762502605933</updated>
-    </task>
-    <task id="LOCAL-00084" summary="добавлен обработчик вебхука из таблицы Галии">
-      <option name="closed" value="true" />
-      <created>1762504836346</created>
-      <option name="number" value="00084" />
-      <option name="presentableId" value="LOCAL-00084" />
-      <option name="project" value="LOCAL" />
-      <updated>1762504836346</updated>
     </task>
     <task id="LOCAL-00085" summary="добавлен обработчик вебхука из таблицы Галии">
       <option name="closed" value="true" />
@@ -596,7 +574,31 @@
       <option name="project" value="LOCAL" />
       <updated>1771355668551</updated>
     </task>
-    <option name="localTasksCounter" value="131" />
+    <task id="LOCAL-00131" summary="Исправлена обработка нового заказа с яндекса">
+      <option name="closed" value="true" />
+      <created>1771358305562</created>
+      <option name="number" value="00131" />
+      <option name="presentableId" value="LOCAL-00131" />
+      <option name="project" value="LOCAL" />
+      <updated>1771358305562</updated>
+    </task>
+    <task id="LOCAL-00132" summary="Исправлена обработка нового заказа с яндекса">
+      <option name="closed" value="true" />
+      <created>1771360914116</created>
+      <option name="number" value="00132" />
+      <option name="presentableId" value="LOCAL-00132" />
+      <option name="project" value="LOCAL" />
+      <updated>1771360914116</updated>
+    </task>
+    <task id="LOCAL-00133" summary="Исправлена обработка нового заказа с яндекса">
+      <option name="closed" value="true" />
+      <created>1771393138272</created>
+      <option name="number" value="00133" />
+      <option name="presentableId" value="LOCAL-00133" />
+      <option name="project" value="LOCAL" />
+      <updated>1771393138272</updated>
+    </task>
+    <option name="localTasksCounter" value="134" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">

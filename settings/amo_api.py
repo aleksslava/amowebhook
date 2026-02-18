@@ -64,14 +64,15 @@ def build_amo_results(
             if lead_contact_id == contact_obj.contact_id:
                 result.append(AmoResult(lead_obj=lead_obj, contact_obj=contact_obj))
                 continue
-    result = sorted(result, key=lambda x: x.lead_obj.shipment_at)
+    # Откидываем лиды с пустым значением даты отгрузки и сортируем список сделок по дате отгрузки
+    result = sorted(filter(lambda x: x.lead_obj.shipment_at != 0,result), key=lambda x: x.lead_obj.shipment_at)
 
     for index, record in enumerate(result):
         current_lead = record.lead_obj
         current_contact = record.contact_obj
 
         # Высчитываем поле "Времени с момента аттестации"
-        if current_contact.attestate_at is not None and current_lead.created_at is not None and current_lead.created_at > current_contact.attestate_at:
+        if current_contact.attestate_at and current_lead.created_at is not None and current_lead.created_at > current_contact.attestate_at:
             current_contact.time_from_attestate = current_lead.created_at - current_contact.attestate_at
         else:
             current_contact.time_from_attestate = None
@@ -83,7 +84,7 @@ def build_amo_results(
                 clean_price = sum(record.lead_obj.price for record in records_by_contact)
                 current_lead.clean_price = clean_price
                 try:
-                    if current_lead.shipment_at is not None and records_by_contact[-1].lead_obj.shipment_at is not None:
+                    if current_lead.shipment_at and records_by_contact[-1].lead_obj.shipment_at:
                         current_lead.last_buy = current_lead.shipment_at - records_by_contact[-1].lead_obj.shipment_at
                     else:
                         current_lead.last_buy = 0
@@ -328,7 +329,7 @@ class AmoCRMWrapper:
                     values = field.get('values', [])
                     if values:
                         return values[0].get('value')
-        return None
+        return 0
 
     @staticmethod
     def _convert_unix_to_sheets_datetime(timestamp_value):
