@@ -71,11 +71,15 @@ def build_amo_results(
         current_lead = record.lead_obj
         current_contact = record.contact_obj
 
-        # Высчитываем поле "Времени с момента аттестации"
-        if current_contact.attestate_at and current_lead.created_at is not None and current_lead.created_at > current_contact.attestate_at:
-            current_contact.time_from_attestate = current_lead.created_at - current_contact.attestate_at
-        else:
+        try:
+            # Высчитываем поле "Времени с момента аттестации"
+            if current_contact.attestate_at and current_lead.shipment_at and current_lead.shipment_at > current_contact.attestate_at:
+                current_contact.time_from_attestate = current_lead.shipment_at - current_contact.attestate_at
+            else:
+                current_contact.time_from_attestate = None
+        except BaseException as error:
             current_contact.time_from_attestate = None
+            logger.error(error)
 
         # Считаем поле "Чистый выкуп до текущей покупки и дату прошлой покупки
         if index != 0:
