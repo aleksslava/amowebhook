@@ -64,7 +64,8 @@ def build_amo_results(
             if lead_contact_id == contact_obj.contact_id:
                 result.append(AmoResult(lead_obj=lead_obj, contact_obj=contact_obj))
                 continue
-    result = sorted(result, key=lambda x: x.lead_obj.created_at)
+    result = sorted(result, key=lambda x: x.lead_obj.shipment_at)
+
     for index, record in enumerate(result):
         current_lead = record.lead_obj
         current_contact = record.contact_obj
