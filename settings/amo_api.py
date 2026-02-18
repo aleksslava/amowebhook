@@ -25,6 +25,7 @@ class AmoLead:
     shipment_at: str | int | None
     clean_price: int | float = 0
     last_buy: int | str | None = None
+    time_from_attestate: int | str | None = None
 
     @property
     def price(self) -> int | float | None:
@@ -42,7 +43,7 @@ class AmoContact:
     contact_id: int
     customer_id: int | None
     attestate_at: str | int | None
-    time_from_attestate: int | str | None = None
+
 
 
 @dataclass
@@ -74,12 +75,11 @@ def build_amo_results(
         try:
             # Высчитываем поле "Времени с момента аттестации"
             if current_contact.attestate_at and current_lead.shipment_at and current_lead.shipment_at > current_contact.attestate_at:
-                current_contact.time_from_attestate = current_lead.shipment_at - current_contact.attestate_at
-                logger.info(f'Дата аттестаци: {current_contact.attestate_at}\nДата отгрузки: {current_lead.shipment_at}\nРазница: {current_contact.time_from_attestate}')
+                current_lead.time_from_attestate = current_lead.shipment_at - current_contact.attestate_at
             else:
-                current_contact.time_from_attestate = None
+                current_lead.time_from_attestate = None
         except BaseException as error:
-            current_contact.time_from_attestate = None
+            current_lead.time_from_attestate = None
             logger.error(error)
 
         # Считаем поле "Чистый выкуп до текущей покупки и дату прошлой покупки
@@ -501,6 +501,12 @@ class AmoCRMWrapper:
     def get_lead_by_id(self, lead_id):
         url = f'/api/v4/leads/{lead_id}'
         response = self._base_request(type='get', endpoint=url)
+        return response.json()
+
+    def get_contact_by_id(self, contact_id) -> dict:
+        url = f'/api/v4/contacts/{contact_id}'
+        response = self._base_request(type='get', endpoint=url)
+
         return response.json()
 
 

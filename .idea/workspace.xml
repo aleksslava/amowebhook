@@ -4,9 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="8b820332-c861-4cd7-9bae-8972956fe3b0" name="Changes" comment="Исправлена обработка нового заказа с яндекса">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-    </list>
+    <list default="true" id="8b820332-c861-4cd7-9bae-8972956fe3b0" name="Changes" comment="Исправлена обработка нового заказа с яндекса" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -69,7 +67,7 @@
       <recent name="C:\Users\solom\PycharmProjects\amowebhook\settings" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.main (1)">
+  <component name="RunManager" selected="Python.test">
     <configuration name="amo_api" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="amowebhook" />
       <option name="ENV_FILES" value="" />
@@ -182,9 +180,9 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.test" />
         <item itemvalue="Python.main (1)" />
         <item itemvalue="Python.main" />
-        <item itemvalue="Python.test" />
         <item itemvalue="Python.utils" />
         <item itemvalue="Python.amo_api" />
       </list>
@@ -205,30 +203,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1747505001328</updated>
-    </task>
-    <task id="LOCAL-00085" summary="добавлен обработчик вебхука из таблицы Галии">
-      <option name="closed" value="true" />
-      <created>1762505839728</created>
-      <option name="number" value="00085" />
-      <option name="presentableId" value="LOCAL-00085" />
-      <option name="project" value="LOCAL" />
-      <updated>1762505839728</updated>
-    </task>
-    <task id="LOCAL-00086" summary="Добавлен endpoint для уведомлений с маркета">
-      <option name="closed" value="true" />
-      <created>1763123220476</created>
-      <option name="number" value="00086" />
-      <option name="presentableId" value="LOCAL-00086" />
-      <option name="project" value="LOCAL" />
-      <updated>1763123220476</updated>
-    </task>
-    <task id="LOCAL-00087" summary="Добавлен endpoint для уведомлений с маркета">
-      <option name="closed" value="true" />
-      <created>1763123476709</created>
-      <option name="number" value="00087" />
-      <option name="presentableId" value="LOCAL-00087" />
-      <option name="project" value="LOCAL" />
-      <updated>1763123476709</updated>
     </task>
     <task id="LOCAL-00088" summary="Добавлен endpoint для уведомлений с маркета">
       <option name="closed" value="true" />
@@ -598,7 +572,31 @@
       <option name="project" value="LOCAL" />
       <updated>1771393138272</updated>
     </task>
-    <option name="localTasksCounter" value="134" />
+    <task id="LOCAL-00134" summary="Исправлена обработка нового заказа с яндекса">
+      <option name="closed" value="true" />
+      <created>1771398101979</created>
+      <option name="number" value="00134" />
+      <option name="presentableId" value="LOCAL-00134" />
+      <option name="project" value="LOCAL" />
+      <updated>1771398101979</updated>
+    </task>
+    <task id="LOCAL-00135" summary="Исправлена обработка нового заказа с яндекса">
+      <option name="closed" value="true" />
+      <created>1771401865607</created>
+      <option name="number" value="00135" />
+      <option name="presentableId" value="LOCAL-00135" />
+      <option name="project" value="LOCAL" />
+      <updated>1771401865607</updated>
+    </task>
+    <task id="LOCAL-00136" summary="Исправлена обработка нового заказа с яндекса">
+      <option name="closed" value="true" />
+      <created>1771408773167</created>
+      <option name="number" value="00136" />
+      <option name="presentableId" value="LOCAL-00136" />
+      <option name="project" value="LOCAL" />
+      <updated>1771408773167</updated>
+    </task>
+    <option name="localTasksCounter" value="137" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">

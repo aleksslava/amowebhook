@@ -61,7 +61,7 @@ def _analyze_and_send_to_sheets(token: str, request_id: str):
                 'customer_id': amo_result.contact_obj.customer_id,
                 'clean_price': amo_result.lead_obj.clean_price,
                 'last_buy': conver_timestamp_to_days(amo_result.lead_obj.last_buy),
-                'time_from_attestate': conver_timestamp_to_days(amo_result.contact_obj.time_from_attestate),
+                'time_from_attestate': conver_timestamp_to_days(amo_result.lead_obj.time_from_attestate),
             }
             for amo_result in amo_results
         ]
