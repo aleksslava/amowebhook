@@ -65,7 +65,7 @@ def build_amo_results(
                 result.append(AmoResult(lead_obj=lead_obj, contact_obj=contact_obj))
                 continue
     # Откидываем лиды с пустым значением даты отгрузки и сортируем список сделок по дате отгрузки
-    result = sorted(filter(lambda x: x.lead_obj.shipment_at != 0,result), key=lambda x: x.lead_obj.shipment_at)
+    result = sorted(filter(lambda x: x.lead_obj.shipment_at != 0, result), key=lambda x: x.lead_obj.shipment_at)
 
     for index, record in enumerate(result):
         current_lead = record.lead_obj
@@ -75,6 +75,7 @@ def build_amo_results(
             # Высчитываем поле "Времени с момента аттестации"
             if current_contact.attestate_at and current_lead.shipment_at and current_lead.shipment_at > current_contact.attestate_at:
                 current_contact.time_from_attestate = current_lead.shipment_at - current_contact.attestate_at
+                logger.info(f'Дата аттестаци: {current_contact.attestate_at}\nДата отгрузки: {current_lead.shipment_at}\nРазница: {current_contact.time_from_attestate}')
             else:
                 current_contact.time_from_attestate = None
         except BaseException as error:
@@ -102,6 +103,8 @@ def build_amo_results(
                 current_lead.last_buy = 0
 
     return result
+
+
 
 
 
@@ -493,6 +496,11 @@ class AmoCRMWrapper:
             }
         ]
         response = self._base_request(type='post', endpoint=url, data=data)
+        return response.json()
+
+    def get_lead_by_id(self, lead_id):
+        url = f'/api/v4/leads/{lead_id}'
+        response = self._base_request(type='get', endpoint=url)
         return response.json()
 
 
