@@ -1,14 +1,19 @@
 import datetime
+from urllib.parse import urlencode
 
 import requests
 from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
+from fastapi.responses import RedirectResponse
 from aiogram import Bot
 import logging
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import sessionmaker
+
+from models import Base, EducationVisit
 from settings.amo_api import AmoCRMWrapper, build_amo_results
 from settings.google_sheets import GoogleSheetsIntegration
 from settings.settings import load_config
 from utils.utils import correct_phone, Order
-from aiogram.enums.parse_mode import ParseMode
 from utils.utils import convert_data, conver_timestamp_to_days
 
 logger = logging.getLogger(__name__)
@@ -21,6 +26,14 @@ config = load_config()
 bot = Bot(token=config.tg_bot.token)
 
 app = FastAPI()
+db_connect_args = {"check_same_thread": False} if config.database_url.startswith("sqlite") else {}
+db_engine = create_engine(config.database_url, connect_args=db_connect_args)
+SessionLocal = sessionmaker(bind=db_engine, autocommit=False, autoflush=False)
+
+
+@app.on_event("startup")
+async def on_startup() -> None:
+    Base.metadata.create_all(bind=db_engine)
 
 amo_api = AmoCRMWrapper(
     path=config.amo_config.path_to_env,
@@ -170,7 +183,65 @@ async def new_order_from_yandex(req:Request):
 
 
 
+@app.get('/education')
+async def education(request: Request):
+    bot_url = config.telegram_bot_url
+    qp = request.query_params
+    yclid = qp.get('yclid')
+    if not yclid:
+        return RedirectResponse(bot_url, status_code=302)
 
+    with SessionLocal() as session:
+        existing_visit = session.execute(
+            select(EducationVisit).where(EducationVisit.yclid == yclid)
+        ).scalar_one_or_none()
+
+        if existing_visit:
+            start_query = urlencode({'start': existing_visit.id})
+            return RedirectResponse(f'{bot_url}?{start_query}', status_code=302)
+
+        education_visit = EducationVisit(
+            utm_source=qp.get('utm_source'),
+            utm_medium=qp.get('utm_medium'),
+            utm_campaign=qp.get('utm_campaign'),
+            utm_content=qp.get('utm_content'),
+            utm_term=qp.get('utm_term'),
+            yclid=yclid,
+            cm_id=qp.get('cm_id'),
+            block=qp.get('block'),
+        )
+        session.add(education_visit)
+        session.commit()
+        session.refresh(education_visit)
+
+        start_query = urlencode({'start': education_visit.id})
+        return RedirectResponse(f'{bot_url}?{start_query}', status_code=302)
+
+
+@app.get('/get_utm/{record_id}')
+async def get_utm(record_id: int, token: str):
+    if config.get_utm_token is None:
+        raise HTTPException(status_code=500, detail='GET_UTM_TOKEN is not configured')
+    if token != config.get_utm_token:
+        raise HTTPException(status_code=401, detail='Invalid token')
+
+    with SessionLocal() as session:
+        education_visit = session.get(EducationVisit, record_id)
+        if education_visit is None:
+            raise HTTPException(status_code=404, detail='EducationVisit record not found')
+
+        utm_data = {
+            'utm_source': education_visit.utm_source,
+            'utm_medium': education_visit.utm_medium,
+            'utm_campaign': education_visit.utm_campaign,
+            'utm_content': education_visit.utm_content,
+            'utm_term': education_visit.utm_term,
+            'yclid': education_visit.yclid,
+        }
+        if all(value in (None, '') for value in utm_data.values()):
+            raise HTTPException(status_code=404, detail='UTM tags not found')
+
+        return utm_data
 
 
 

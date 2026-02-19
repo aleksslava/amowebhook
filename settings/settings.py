@@ -35,6 +35,9 @@ class Config:
     magazne_id: str
     google_sheets_webhook_url: str | None
     google_sheets_token: str | None
+    database_url: str
+    telegram_bot_url: str
+    get_utm_token: str | None
 
 
 # Функция создания экземпляра класса config
@@ -60,5 +63,8 @@ def load_config(path: str | None = os.path.abspath('./.env')):
         yandex_api_key=env('YANDEX_API'),
         magazne_id=env('MAGAZINE_ID'),
         google_sheets_webhook_url=env('GOOGLE_SHEETS_WEBHOOK_URL', default=None),
-        google_sheets_token=env('GOOGLE_SHEETS_TOKEN', default=None)
+        google_sheets_token=env('GOOGLE_SHEETS_TOKEN', default=None),
+        database_url=env('DATABASE_URL', default='sqlite:///./amowebhook.db'),
+        telegram_bot_url=env('TELEGRAM_BOT_URL', default='https://t.me/your_bot'),
+        get_utm_token=env('GET_UTM_TOKEN', default=None)
     )
