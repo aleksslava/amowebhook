@@ -213,6 +213,7 @@ async def education(request: Request):
         session.add(education_visit)
         session.commit()
         session.refresh(education_visit)
+        logger.info(f'utm_source={education_visit.utm_source} utm_medium={education_visit.utm_medium} utm_campaign={education_visit.utm_campaign} utm_content={education_visit.utm_content}')
 
         start_query = urlencode({'start': education_visit.id})
         return RedirectResponse(f'{bot_url}?{start_query}', status_code=302)

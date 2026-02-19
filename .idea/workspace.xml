@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="8b820332-c861-4cd7-9bae-8972956fe3b0" name="Changes" comment="Исправлена обработка нового заказа с яндекса" />
+    <list default="true" id="8b820332-c861-4cd7-9bae-8972956fe3b0" name="Changes" comment="Исправлена обработка нового заказа с яндекса">
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
