@@ -40,36 +40,96 @@ class AmoContact:
     customer_id: int | None
     attestate_at: str | int | None
 
+@dataclass
+class AmoCustomers:
+    customer_id: int
+    created_at:int
+    contacts_id: list[int]
+
 
 @dataclass
 class AmoResult:
     lead_obj: AmoLead
-    contact_obj: AmoContact
+    # contact_obj: AmoContact
+    customer_obj: AmoCustomers
+
+# def build_amo_results(
+#     leads: list[AmoLead],
+#     contacts: list[AmoContact]
+# ) -> list[AmoResult]:
+#     logger.info(f'Количество объектов Лид: {len(leads)}')
+#     logger.info(f'Количество объектов Контакт: {len(contacts)}')
+#     result: list[AmoResult] = []
+#     for lead_obj in leads:
+#         lead_contact_id = lead_obj.contact_id
+#         for contact_obj in contacts:
+#             if lead_contact_id == contact_obj.contact_id:
+#                 result.append(AmoResult(lead_obj=lead_obj, contact_obj=contact_obj))
+#                 continue
+#     # Откидываем лиды с пустым значением даты отгрузки и сортируем список сделок по дате отгрузки
+#     result = sorted(filter(lambda x: x.lead_obj.shipment_at != 0, result), key=lambda x: x.lead_obj.shipment_at)
+#
+#     for index, record in enumerate(result):
+#         current_lead = record.lead_obj
+#         current_contact = record.contact_obj
+#
+#         try:
+#             # Высчитываем поле "Времени с момента аттестации"
+#             if current_contact.attestate_at and current_lead.shipment_at and current_lead.shipment_at > current_contact.attestate_at:
+#                 current_lead.time_from_attestate = current_lead.shipment_at - current_contact.attestate_at
+#             else:
+#                 current_lead.time_from_attestate = None
+#         except BaseException as error:
+#             current_lead.time_from_attestate = None
+#             logger.error(error)
+#
+#         # Считаем поле "Чистый выкуп до текущей покупки и дату прошлой покупки
+#         if index != 0:
+#             records_by_contact = list(filter(lambda x: x.contact_obj.customer_id == current_contact.customer_id, result[:index]))
+#             if records_by_contact:
+#                 clean_price = sum(record.lead_obj.price for record in records_by_contact)
+#                 current_lead.clean_price = clean_price
+#                 try:
+#                     if current_lead.shipment_at and records_by_contact[-1].lead_obj.shipment_at:
+#                         current_lead.last_buy = current_lead.shipment_at - records_by_contact[-1].lead_obj.shipment_at
+#                     else:
+#                         current_lead.last_buy = 0
+#                 except BaseException as error:
+#                     current_lead.last_buy = 0
+#                     logger.error(error)
+#                     logger.error(current_lead.shipment_at, records_by_contact[-1].lead_obj.shipment_at)
+#
+#             else:
+#                 current_lead.clean_price = 0
+#                 current_lead.last_buy = 0
+#
+#     return result
+
 
 def build_amo_results(
     leads: list[AmoLead],
-    contacts: list[AmoContact]
+    customers: list[AmoCustomers],
 ) -> list[AmoResult]:
     logger.info(f'Количество объектов Лид: {len(leads)}')
-    logger.info(f'Количество объектов Контакт: {len(contacts)}')
+    logger.info(f'Количество объектов Покупатель: {len(customers)}')
     result: list[AmoResult] = []
     for lead_obj in leads:
         lead_contact_id = lead_obj.contact_id
-        for contact_obj in contacts:
-            if lead_contact_id == contact_obj.contact_id:
-                result.append(AmoResult(lead_obj=lead_obj, contact_obj=contact_obj))
+        for customer_obj in customers:
+            if lead_contact_id in customer_obj.contacts_id:
+                result.append(AmoResult(lead_obj=lead_obj, customer_obj=customer_obj))
                 continue
     # Откидываем лиды с пустым значением даты отгрузки и сортируем список сделок по дате отгрузки
     result = sorted(filter(lambda x: x.lead_obj.shipment_at != 0, result), key=lambda x: x.lead_obj.shipment_at)
 
     for index, record in enumerate(result):
         current_lead = record.lead_obj
-        current_contact = record.contact_obj
+        current_customer = record.customer_obj
 
         try:
             # Высчитываем поле "Времени с момента аттестации"
-            if current_contact.attestate_at and current_lead.shipment_at and current_lead.shipment_at > current_contact.attestate_at:
-                current_lead.time_from_attestate = current_lead.shipment_at - current_contact.attestate_at
+            if current_customer.created_at and current_lead.shipment_at and current_lead.shipment_at > current_customer.created_at:
+                current_lead.time_from_attestate = current_lead.shipment_at - current_customer.created_at
             else:
                 current_lead.time_from_attestate = None
         except BaseException as error:
@@ -78,19 +138,19 @@ def build_amo_results(
 
         # Считаем поле "Чистый выкуп до текущей покупки и дату прошлой покупки
         if index != 0:
-            records_by_contact = list(filter(lambda x: x.contact_obj.customer_id == current_contact.customer_id, result[:index]))
-            if records_by_contact:
-                clean_price = sum(record.lead_obj.price for record in records_by_contact)
+            records_by_customer = list(filter(lambda x: x.customer_obj.customer_id == current_customer.customer_id, result[:index]))
+            if records_by_customer:
+                clean_price = sum(record.lead_obj.price for record in records_by_customer)
                 current_lead.clean_price = clean_price
                 try:
-                    if current_lead.shipment_at and records_by_contact[-1].lead_obj.shipment_at:
-                        current_lead.last_buy = current_lead.shipment_at - records_by_contact[-1].lead_obj.shipment_at
+                    if current_lead.shipment_at and records_by_customer[-1].lead_obj.shipment_at:
+                        current_lead.last_buy = current_lead.shipment_at - records_by_customer[-1].lead_obj.shipment_at
                     else:
                         current_lead.last_buy = 0
                 except BaseException as error:
                     current_lead.last_buy = 0
                     logger.error(error)
-                    logger.error(current_lead.shipment_at, records_by_contact[-1].lead_obj.shipment_at)
+                    logger.error(current_lead.shipment_at, records_by_customer[-1].lead_obj.shipment_at)
 
             else:
                 current_lead.clean_price = 0
@@ -394,6 +454,60 @@ class AmoCRMWrapperAsync:
     def _get_contacts_embedded_list(self, payload: dict) -> list[dict]:
         return payload.get("_embedded", {}).get("contacts", []) or []
 
+    def _get_customers_embedded_list(self, payload: dict) -> list[dict]:
+        return payload.get("_embedded", {}).get("customers", []) or []
+
+    @staticmethod
+    def _get_customer_contacts_ids(customer_data: dict) -> list[int]:
+        contacts = customer_data.get("_embedded", {}).get("contacts", []) or []
+        contact_ids: list[int] = []
+        for contact in contacts:
+            contact_id = contact.get("id")
+            if contact_id is not None:
+                contact_ids.append(contact_id)
+        return contact_ids
+
+    async def get_customers_with_contacts(self, limit: int = 250) -> list[AmoCustomers]:
+        url = "/api/v4/customers"
+        page = 1
+        all_customers: list[AmoCustomers] = []
+
+        while True:
+            query = f"with=contacts&limit={limit}&page={page}"
+            resp = await self._base_request(endpoint=url, type="get_param", parameters=query)
+
+            if resp.status_code == 204:
+                break
+
+            if resp.status_code != 200:
+                logger.error(
+                    "Не удалось получить покупателей: status_code=%s, page=%s, body=%s",
+                    resp.status_code,
+                    page,
+                    resp.text,
+                )
+                break
+
+            page_items = self._get_customers_embedded_list(resp.json())
+            if not page_items:
+                break
+
+            for customer in page_items:
+                all_customers.append(
+                    AmoCustomers(
+                        customer_id=customer.get("id"),
+                        created_at=customer.get("created_at"),
+                        contacts_id=self._get_customer_contacts_ids(customer),
+                    )
+                )
+
+            if len(page_items) < limit:
+                break
+
+            page += 1
+
+        return all_customers
+
     async def get_contacts_with_customer(self, limit: int = 250) -> list[AmoContact]:
         url = "/api/v4/contacts"
         page = 1
@@ -401,7 +515,6 @@ class AmoCRMWrapperAsync:
         attestate_field_id = 1096322
 
         while True:
-            logger.info("Запрос контактов, страница: %s", page)
             query = f"with=customers&limit={limit}&page={page}"
             resp = await self._base_request(endpoint=url, type="get_param", parameters=query)
 
@@ -501,7 +614,6 @@ class AmoCRMWrapperAsync:
         shipment_field_id = 935651
 
         while True:
-            logger.info("Запрос сделок, страница: %s", page)
             query = (
                 "filter[pipeline_id][]=1628622&"
                 "filter[statuses][0][pipeline_id]=1628622&"

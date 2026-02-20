@@ -69,9 +69,9 @@ def _build_payload(amo_results):
             "created_at": convert_data(r.lead_obj.created_at),
             "close_at": convert_data(r.lead_obj.close_at),
             "shipment_at": convert_data(r.lead_obj.shipment_at),
-            "attestate_at": convert_data(r.contact_obj.attestate_at),
+            "attestate_at": convert_data(r.customer_obj.created_at),
             "contact_id": r.lead_obj.contact_id,
-            "customer_id": r.contact_obj.customer_id,
+            "customer_id": r.customer_obj.customer_id,
             "clean_price": r.lead_obj.clean_price,
             "last_buy": conver_timestamp_to_days(r.lead_obj.last_buy),
             "time_from_attestate": conver_timestamp_to_days(r.lead_obj.time_from_attestate),
@@ -86,12 +86,12 @@ async def _analyze_and_send_to_sheets(token: str, request_id: str) -> None:
             logger.error("GOOGLE_SHEETS_WEBHOOK_URL is not configured")
             return
 
-        leads_list, contacts_list = await asyncio.gather(
+        leads_list, customers_list = await asyncio.gather(
             amo_api.get_pipeline_1628622_status_142_leads(),
-            amo_api.get_contacts_with_customer(),
+            amo_api.get_customers_with_contacts(),
         )
 
-        amo_results = build_amo_results(leads=leads_list, contacts=contacts_list)
+        amo_results = build_amo_results(leads=leads_list, customers=customers_list)
         payload = _build_payload(amo_results)
 
         # Если GoogleSheetsIntegration синхронный (requests) — отправляем в thread, чтобы не блокировать event loop
