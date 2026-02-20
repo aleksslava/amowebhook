@@ -123,7 +123,7 @@ class AmoCRMWrapperAsync:
         amocrm_secret_code: str,
         *,
         timeout: float = 30.0,
-        min_delay_seconds: float = 0.2,  # как у тебя в коде
+        min_delay_seconds: float = 0.5,  # как у тебя в коде
         max_retries: int = 2,
     ):
         self.path_to_env = path
