@@ -236,6 +236,13 @@ async def new_order_from_yandex(req: Request):
 
 @app.get("/telegram")
 async def education(request: Request):
+    logger.info(
+        "GET %s | query=%s | cookies=%s | headers=%s",
+        str(request.url),
+        dict(request.query_params),
+        request.cookies,
+        {k: v for k, v in request.headers.items()},
+    )
     bot_url = config.telegram_bot_url
     qp = request.query_params
     yclid = qp.get("yclid")

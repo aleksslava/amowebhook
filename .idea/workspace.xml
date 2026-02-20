@@ -5,7 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="8b820332-c861-4cd7-9bae-8972956fe3b0" name="Changes" comment="Исправлена обработка нового заказа с яндекса">
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -205,62 +205,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1747505001328</updated>
-    </task>
-    <task id="LOCAL-00088" summary="Добавлен endpoint для уведомлений с маркета">
-      <option name="closed" value="true" />
-      <created>1763134230819</created>
-      <option name="number" value="00088" />
-      <option name="presentableId" value="LOCAL-00088" />
-      <option name="project" value="LOCAL" />
-      <updated>1763134230819</updated>
-    </task>
-    <task id="LOCAL-00089" summary="Добавлен endpoint для уведомлений с маркета">
-      <option name="closed" value="true" />
-      <created>1763240700648</created>
-      <option name="number" value="00089" />
-      <option name="presentableId" value="LOCAL-00089" />
-      <option name="project" value="LOCAL" />
-      <updated>1763240700648</updated>
-    </task>
-    <task id="LOCAL-00090" summary="Добавлен endpoint для уведомлений с маркета">
-      <option name="closed" value="true" />
-      <created>1763240946769</created>
-      <option name="number" value="00090" />
-      <option name="presentableId" value="LOCAL-00090" />
-      <option name="project" value="LOCAL" />
-      <updated>1763240946769</updated>
-    </task>
-    <task id="LOCAL-00091" summary="Добавлен endpoint для уведомлений с маркета">
-      <option name="closed" value="true" />
-      <created>1763362655282</created>
-      <option name="number" value="00091" />
-      <option name="presentableId" value="LOCAL-00091" />
-      <option name="project" value="LOCAL" />
-      <updated>1763362655282</updated>
-    </task>
-    <task id="LOCAL-00092" summary="Добавлен endpoint для уведомлений с маркета">
-      <option name="closed" value="true" />
-      <created>1763363232798</created>
-      <option name="number" value="00092" />
-      <option name="presentableId" value="LOCAL-00092" />
-      <option name="project" value="LOCAL" />
-      <updated>1763363232798</updated>
-    </task>
-    <task id="LOCAL-00093" summary="Добавлен endpoint для уведомлений с маркета">
-      <option name="closed" value="true" />
-      <created>1763363452259</created>
-      <option name="number" value="00093" />
-      <option name="presentableId" value="LOCAL-00093" />
-      <option name="project" value="LOCAL" />
-      <updated>1763363452259</updated>
-    </task>
-    <task id="LOCAL-00094" summary="Добавлен endpoint для уведомлений с маркета">
-      <option name="closed" value="true" />
-      <created>1763364303449</created>
-      <option name="number" value="00094" />
-      <option name="presentableId" value="LOCAL-00094" />
-      <option name="project" value="LOCAL" />
-      <updated>1763364303449</updated>
     </task>
     <task id="LOCAL-00095" summary="Добавлен endpoint для уведомлений с маркета">
       <option name="closed" value="true" />
@@ -598,7 +542,63 @@
       <option name="project" value="LOCAL" />
       <updated>1771408773167</updated>
     </task>
-    <option name="localTasksCounter" value="137" />
+    <task id="LOCAL-00137" summary="Исправлена обработка нового заказа с яндекса">
+      <option name="closed" value="true" />
+      <created>1771502838521</created>
+      <option name="number" value="00137" />
+      <option name="presentableId" value="LOCAL-00137" />
+      <option name="project" value="LOCAL" />
+      <updated>1771502838521</updated>
+    </task>
+    <task id="LOCAL-00138" summary="Исправлена обработка нового заказа с яндекса">
+      <option name="closed" value="true" />
+      <created>1771502995423</created>
+      <option name="number" value="00138" />
+      <option name="presentableId" value="LOCAL-00138" />
+      <option name="project" value="LOCAL" />
+      <updated>1771502995423</updated>
+    </task>
+    <task id="LOCAL-00139" summary="Исправлена обработка нового заказа с яндекса">
+      <option name="closed" value="true" />
+      <created>1771503510870</created>
+      <option name="number" value="00139" />
+      <option name="presentableId" value="LOCAL-00139" />
+      <option name="project" value="LOCAL" />
+      <updated>1771503510871</updated>
+    </task>
+    <task id="LOCAL-00140" summary="Исправлена обработка нового заказа с яндекса">
+      <option name="closed" value="true" />
+      <created>1771583771539</created>
+      <option name="number" value="00140" />
+      <option name="presentableId" value="LOCAL-00140" />
+      <option name="project" value="LOCAL" />
+      <updated>1771583771539</updated>
+    </task>
+    <task id="LOCAL-00141" summary="Исправлена обработка нового заказа с яндекса">
+      <option name="closed" value="true" />
+      <created>1771585720578</created>
+      <option name="number" value="00141" />
+      <option name="presentableId" value="LOCAL-00141" />
+      <option name="project" value="LOCAL" />
+      <updated>1771585720578</updated>
+    </task>
+    <task id="LOCAL-00142" summary="Исправлена обработка нового заказа с яндекса">
+      <option name="closed" value="true" />
+      <created>1771592329070</created>
+      <option name="number" value="00142" />
+      <option name="presentableId" value="LOCAL-00142" />
+      <option name="project" value="LOCAL" />
+      <updated>1771592329070</updated>
+    </task>
+    <task id="LOCAL-00143" summary="Исправлена обработка нового заказа с яндекса">
+      <option name="closed" value="true" />
+      <created>1771594991650</created>
+      <option name="number" value="00143" />
+      <option name="presentableId" value="LOCAL-00143" />
+      <option name="project" value="LOCAL" />
+      <updated>1771594991650</updated>
+    </task>
+    <option name="localTasksCounter" value="144" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
