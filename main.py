@@ -1,7 +1,7 @@
 import asyncio
 import datetime
 import logging
-from urllib.parse import urlencode
+from urllib.parse import unquote_plus, urlencode
 
 import requests
 from aiogram import Bot
@@ -59,6 +59,64 @@ async def on_startup() -> None:
 @app.on_event("shutdown")
 async def on_shutdown() -> None:
     await amo_api.close()
+
+
+def _cookie_value(cookies: dict[str, str], key: str) -> str | None:
+    value = cookies.get(key)
+    if value is not None:
+        return value
+    for cookie_key, cookie_value in cookies.items():
+        if cookie_key.strip() == key:
+            return cookie_value
+    return None
+
+
+def _normalize_tracking_value(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+    if cleaned.lower() in {"(none)", "none", "null", "undefined"}:
+        return None
+    return cleaned
+
+
+def _parse_sourcebuster_cookie(cookie_value: str | None) -> dict[str, str]:
+    parsed: dict[str, str] = {}
+    if not cookie_value:
+        return parsed
+
+    decoded = unquote_plus(cookie_value).strip()
+    for item in decoded.split("|||"):
+        if "=" not in item:
+            continue
+        key, value = item.split("=", 1)
+        parsed[key.strip()] = value.strip()
+    return parsed
+
+
+def _get_tracking_value(
+        query_params,
+        cookies: dict[str, str],
+        key: str,
+        sbjs_current: dict[str, str],
+        sbjs_first: dict[str, str],
+        sbjs_key: str,
+) -> str | None:
+    value = _normalize_tracking_value(query_params.get(key))
+    if value is not None:
+        return value
+
+    value = _normalize_tracking_value(_cookie_value(cookies, key))
+    if value is not None:
+        return value
+
+    value = _normalize_tracking_value(sbjs_current.get(sbjs_key))
+    if value is not None:
+        return value
+
+    return _normalize_tracking_value(sbjs_first.get(sbjs_key))
 
 
 def _build_payload(amo_results):
@@ -245,28 +303,74 @@ async def education(request: Request):
     )
     bot_url = config.telegram_bot_url
     qp = request.query_params
-    yclid = qp.get("yclid")
-    if not yclid:
-        return RedirectResponse(bot_url, status_code=302)
+    cookies = request.cookies
+    sbjs_current = _parse_sourcebuster_cookie(_cookie_value(cookies, "sbjs_current"))
+    sbjs_first = _parse_sourcebuster_cookie(_cookie_value(cookies, "sbjs_first"))
+    yclid = _get_tracking_value(
+        query_params=qp,
+        cookies=cookies,
+        key="yclid",
+        sbjs_current=sbjs_current,
+        sbjs_first=sbjs_first,
+        sbjs_key="id",
+    )
 
     with SessionLocal() as session:
-        existing_visit = session.execute(
-            select(EducationVisit).where(EducationVisit.yclid == yclid)
-        ).scalar_one_or_none()
+        if yclid:
+            existing_visit = session.execute(
+                select(EducationVisit).where(EducationVisit.yclid == yclid)
+            ).scalar_one_or_none()
 
-        if existing_visit:
-            start_query = urlencode({"start": existing_visit.id})
-            return RedirectResponse(f"{bot_url}?{start_query}", status_code=302)
+            if existing_visit:
+                start_query = urlencode({"start": existing_visit.id})
+                return RedirectResponse(f"{bot_url}?{start_query}", status_code=302)
 
         education_visit = EducationVisit(
-            utm_source=qp.get("utm_source"),
-            utm_medium=qp.get("utm_medium"),
-            utm_campaign=qp.get("utm_campaign"),
-            utm_content=qp.get("utm_content"),
-            utm_term=qp.get("utm_term"),
+            utm_source=_get_tracking_value(
+                query_params=qp,
+                cookies=cookies,
+                key="utm_source",
+                sbjs_current=sbjs_current,
+                sbjs_first=sbjs_first,
+                sbjs_key="src",
+            ),
+            utm_medium=_get_tracking_value(
+                query_params=qp,
+                cookies=cookies,
+                key="utm_medium",
+                sbjs_current=sbjs_current,
+                sbjs_first=sbjs_first,
+                sbjs_key="mdm",
+            ),
+            utm_campaign=_get_tracking_value(
+                query_params=qp,
+                cookies=cookies,
+                key="utm_campaign",
+                sbjs_current=sbjs_current,
+                sbjs_first=sbjs_first,
+                sbjs_key="cmp",
+            ),
+            utm_content=_get_tracking_value(
+                query_params=qp,
+                cookies=cookies,
+                key="utm_content",
+                sbjs_current=sbjs_current,
+                sbjs_first=sbjs_first,
+                sbjs_key="cnt",
+            ),
+            utm_term=_get_tracking_value(
+                query_params=qp,
+                cookies=cookies,
+                key="utm_term",
+                sbjs_current=sbjs_current,
+                sbjs_first=sbjs_first,
+                sbjs_key="trm",
+            ),
             yclid=yclid,
-            cm_id=qp.get("cm_id"),
-            block=qp.get("block"),
+            cm_id=_normalize_tracking_value(qp.get("cm_id"))
+                  or _normalize_tracking_value(_cookie_value(cookies, "cm_id")),
+            block=_normalize_tracking_value(qp.get("block"))
+                  or _normalize_tracking_value(_cookie_value(cookies, "block")),
         )
         session.add(education_visit)
         session.commit()
@@ -276,7 +380,8 @@ async def education(request: Request):
             f"utm_source={education_visit.utm_source} "
             f"utm_medium={education_visit.utm_medium} "
             f"utm_campaign={education_visit.utm_campaign} "
-            f"utm_content={education_visit.utm_content}"
+            f"utm_content={education_visit.utm_content} "
+            f"yclid={education_visit.yclid}"
         )
 
         start_query = urlencode({"start": education_visit.id})
