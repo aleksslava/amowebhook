@@ -234,7 +234,7 @@ async def new_order_from_yandex(req: Request):
         }
 
 
-@app.get("/education")
+@app.get("/telegram")
 async def education(request: Request):
     bot_url = config.telegram_bot_url
     qp = request.query_params
