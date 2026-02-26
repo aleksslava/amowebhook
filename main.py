@@ -1,7 +1,8 @@
 import asyncio
 import datetime
+import json
 import logging
-from urllib.parse import unquote_plus, urlencode
+from urllib.parse import parse_qs, unquote_plus, urlencode
 
 import requests
 from aiogram import Bot
@@ -417,6 +418,24 @@ async def get_utm(record_id: int, token: str):
 
 @app.post("/new_message_tp")
 async def proceed_webhook_tp(req: Request):
-    payload = await req.json()
-    logger.info(f"payload={payload}")
+    raw_body = await req.body()
+    content_type = req.headers.get("content-type", "").lower()
+
+    if not raw_body:
+        payload = {}
+    elif "application/json" in content_type:
+        try:
+            payload = json.loads(raw_body)
+        except json.JSONDecodeError:
+            payload = raw_body.decode("utf-8", errors="replace")
+    elif "application/x-www-form-urlencoded" in content_type:
+        payload = parse_qs(raw_body.decode("utf-8", errors="replace"), keep_blank_values=True)
+    else:
+        text_body = raw_body.decode("utf-8", errors="replace")
+        try:
+            payload = json.loads(text_body)
+        except json.JSONDecodeError:
+            payload = text_body
+
+    logger.info("new_message_tp payload=%s", payload)
     return {'status': 'ok'}
