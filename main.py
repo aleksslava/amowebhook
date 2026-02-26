@@ -413,3 +413,10 @@ async def get_utm(record_id: int, token: str):
             raise HTTPException(status_code=404, detail="UTM tags not found")
 
         return utm_data
+
+
+@app.post("/new_message_tp")
+async def proceed_webhook_tp(req: Request):
+    payload = await req.json()
+    logger.info(f"payload={payload}")
+    return {'status': 'ok'}
