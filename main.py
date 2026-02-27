@@ -394,10 +394,10 @@ async def education(request: Request):
 
 
 @app.get("/get_utm/{record_id}")
-async def get_utm(record_id: int, token: str):
+async def get_utm(record_id: int, utm_token: str):
     if config.get_utm_token is None:
         raise HTTPException(status_code=500, detail="GET_UTM_TOKEN is not configured")
-    if token != config.get_utm_token:
+    if utm_token != config.get_utm_token:
         raise HTTPException(status_code=401, detail="Invalid token")
 
     with SessionLocal() as session:
