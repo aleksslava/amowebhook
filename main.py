@@ -104,14 +104,17 @@ def _get_tracking_value(
         sbjs_current: dict[str, str],
         sbjs_first: dict[str, str],
         sbjs_key: str,
+        cookie_keys: tuple[str, ...] | None = None,
 ) -> str | None:
     value = _normalize_tracking_value(query_params.get(key))
     if value is not None:
         return value
 
-    value = _normalize_tracking_value(_cookie_value(cookies, key))
-    if value is not None:
-        return value
+    keys_to_check = cookie_keys or (key,)
+    for cookie_key in keys_to_check:
+        value = _normalize_tracking_value(_cookie_value(cookies, cookie_key))
+        if value is not None:
+            return value
 
     value = _normalize_tracking_value(sbjs_current.get(sbjs_key))
     if value is not None:
@@ -295,13 +298,13 @@ async def new_order_from_yandex(req: Request):
 
 @app.get("/telegram")
 async def education(request: Request):
-    logger.info(
-        "GET %s | query=%s | cookies=%s | headers=%s",
-        str(request.url),
-        dict(request.query_params),
-        request.cookies,
-        {k: v for k, v in request.headers.items()},
-    )
+    # logger.info(
+    #     "GET %s | query=%s | cookies=%s | headers=%s",
+    #     str(request.url),
+    #     dict(request.query_params),
+    #     request.cookies,
+    #     {k: v for k, v in request.headers.items()},
+    # )
     bot_url = config.telegram_bot_url
     qp = request.query_params
     cookies = request.cookies
@@ -314,6 +317,7 @@ async def education(request: Request):
         sbjs_current=sbjs_current,
         sbjs_first=sbjs_first,
         sbjs_key="id",
+        cookie_keys=("yclid", "_ym_uid"),
     )
 
     with SessionLocal() as session:
