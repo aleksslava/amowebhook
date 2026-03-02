@@ -416,6 +416,8 @@ async def get_utm(record_id: int, utm_token: str):
 
         if all(value in (None, "") for value in utm_data.values()):
             raise HTTPException(status_code=404, detail="UTM tags not found")
+        logger.info(
+            f'utm_source={utm_data["utm_source"]}\nutm_medium={utm_data["utm_medium"]}\nutm_campaign={utm_data["utm_campaign"]}\nyclid={utm_data["yclid"]}')
 
         return utm_data
 
@@ -441,5 +443,5 @@ async def proceed_webhook_tp(req: Request):
         except json.JSONDecodeError:
             payload = text_body
 
-    logger.info("new_message_tp payload=%s", payload)
+    # logger.info("new_message_tp payload=%s", payload)
     return {'status': 'ok'}
