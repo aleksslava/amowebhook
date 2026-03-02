@@ -137,6 +137,7 @@ def _build_payload(amo_results):
             "clean_price": r.lead_obj.clean_price,
             "last_buy": conver_timestamp_to_days(r.lead_obj.last_buy),
             "time_from_attestate": conver_timestamp_to_days(r.lead_obj.time_from_attestate),
+            "paid_at": convert_data(r.lead_obj.paid_at),
         }
         for r in amo_results
     ]

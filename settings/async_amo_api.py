@@ -24,6 +24,7 @@ class AmoLead:
     clean_price: int | float = 0
     last_buy: int | str | None = None
     time_from_attestate: int | str | None = None
+    paid_at: int | None = None
 
     @property
     def price(self) -> int | float | None:
@@ -612,6 +613,7 @@ class AmoCRMWrapperAsync:
         page = 1
         all_leads: list[AmoLead] = []
         shipment_field_id = 935651
+        paid_at_field_id = 1104770
 
         while True:
             query = (
@@ -650,6 +652,7 @@ class AmoCRMWrapperAsync:
                         close_at=lead.get("closed_at"),
                         contact_id=self._get_main_contact_id(lead),
                         shipment_at=self._get_custom_field_value(lead, shipment_field_id),
+                        paid_at=self._get_custom_field_value(lead, paid_at_field_id)
                     )
                 )
 
