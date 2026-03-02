@@ -322,14 +322,14 @@ async def education(request: Request):
     )
 
     with SessionLocal() as session:
-        if yclid:
-            existing_visit = session.execute(
-                select(EducationVisit).where(EducationVisit.yclid == yclid)
-            ).scalar_one_or_none()
-
-            if existing_visit:
-                start_query = urlencode({"start": existing_visit.id})
-                return RedirectResponse(f"{bot_url}?{start_query}", status_code=302)
+        # if yclid:
+        #     existing_visit = session.execute(
+        #         select(EducationVisit).where(EducationVisit.yclid == yclid)
+        #     ).scalar_one_or_none()
+        #
+        #     if existing_visit:
+        #         start_query = urlencode({"start": existing_visit.id})
+        #         return RedirectResponse(f"{bot_url}?{start_query}", status_code=302)
 
         education_visit = EducationVisit(
             utm_source=_get_tracking_value(

@@ -216,7 +216,7 @@ class AmoCRMWrapperAsync:
 
     async def open(self) -> None:
         """
-        Явно инициализирует httpx.AsyncClient.
+        Явно инициализирует httpx. AsyncClient.
         Можно вызывать несколько раз — повторно клиент не создастся.
         """
         if self._client is None:
@@ -224,7 +224,7 @@ class AmoCRMWrapperAsync:
 
     async def close(self) -> None:
         """
-        Явно закрывает httpx.AsyncClient.
+        Явно закрывает httpx. AsyncClient.
         Безопасно при повторных вызовах.
         """
         if self._client is not None:
