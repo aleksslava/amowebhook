@@ -124,7 +124,7 @@ def build_amo_results(
     # result = sorted(filter(lambda x: x.lead_obj.shipment_at != 0, result), key=lambda x: x.lead_obj.shipment_at)
 
     # Второй вариант: без даты отгрузки не откидываем, сортируем по id сделки
-    result = sorted(result, key=lambda x: x.lead_obj.id)
+    result = sorted(result, key=lambda x: x.lead_obj.lead_id)
 
     for index, record in enumerate(result):
         current_lead = record.lead_obj
