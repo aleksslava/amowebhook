@@ -43,8 +43,8 @@ class AmoContact:
 
 @dataclass
 class AmoCustomers:
-    customer_id: int
-    created_at:int
+    customer_id: int | None
+    created_at:int | None
     contacts_id: list[int]
 
 
@@ -121,7 +121,10 @@ def build_amo_results(
                 result.append(AmoResult(lead_obj=lead_obj, customer_obj=customer_obj))
                 continue
     # Откидываем лиды с пустым значением даты отгрузки и сортируем список сделок по дате отгрузки
-    result = sorted(filter(lambda x: x.lead_obj.shipment_at != 0, result), key=lambda x: x.lead_obj.shipment_at)
+    # result = sorted(filter(lambda x: x.lead_obj.shipment_at != 0, result), key=lambda x: x.lead_obj.shipment_at)
+
+    # Второй вариант: без даты отгрузки не откидываем, сортируем по id сделки
+    result = sorted(result, key=lambda x: x.lead_obj.id)
 
     for index, record in enumerate(result):
         current_lead = record.lead_obj
