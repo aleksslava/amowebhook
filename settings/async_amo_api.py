@@ -616,14 +616,33 @@ class AmoCRMWrapperAsync:
         paid_at_field_id = 1104770
 
         while True:
+            # query = (
+            #     "filter[pipeline_id][]=1628622&"
+            #     "filter[statuses][0][pipeline_id]=1628622&"
+            #     "filter[statuses][0][status_id]=142&"
+            #     "with=contacts&"
+            #     f"limit={limit}&"
+            #     f"page={page}"
+            # )
+
             query = (
                 "filter[pipeline_id][]=1628622&"
                 "filter[statuses][0][pipeline_id]=1628622&"
                 "filter[statuses][0][status_id]=142&"
+                "filter[statuses][1][pipeline_id]=1628622&"
+                "filter[statuses][1][status_id]=24709308&"
+                "filter[statuses][2][pipeline_id]=1628622&"
+                "filter[statuses][2][status_id]=38737875&"
+                "filter[statuses][3][pipeline_id]=1628622&"
+                "filter[statuses][3][status_id]=64191281&"
+                "filter[statuses][4][pipeline_id]=1628622&"
+                "filter[statuses][4][status_id]=50957124&"
                 "with=contacts&"
                 f"limit={limit}&"
                 f"page={page}"
             )
+
+
 
             resp = await self._base_request(endpoint=url, type="get_param", parameters=query)
 
