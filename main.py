@@ -446,3 +446,86 @@ async def proceed_webhook_tp(req: Request):
 
     # logger.info("new_message_tp payload=%s", payload)
     return {'status': 'ok'}
+
+
+
+@app.get("/max")
+async def education_max(request: Request):
+    bot_url = config.max_bot_url
+    qp = request.query_params
+    cookies = request.cookies
+    sbjs_current = _parse_sourcebuster_cookie(_cookie_value(cookies, "sbjs_current"))
+    sbjs_first = _parse_sourcebuster_cookie(_cookie_value(cookies, "sbjs_first"))
+    yclid = _get_tracking_value(
+        query_params=qp,
+        cookies=cookies,
+        key="yclid",
+        sbjs_current=sbjs_current,
+        sbjs_first=sbjs_first,
+        sbjs_key="id",
+        cookie_keys=("yclid", "_ym_uid"),
+    )
+
+    with SessionLocal() as session:
+
+        education_visit = EducationVisit(
+            utm_source=_get_tracking_value(
+                query_params=qp,
+                cookies=cookies,
+                key="utm_source",
+                sbjs_current=sbjs_current,
+                sbjs_first=sbjs_first,
+                sbjs_key="src",
+            ),
+            utm_medium=_get_tracking_value(
+                query_params=qp,
+                cookies=cookies,
+                key="utm_medium",
+                sbjs_current=sbjs_current,
+                sbjs_first=sbjs_first,
+                sbjs_key="mdm",
+            ),
+            utm_campaign=_get_tracking_value(
+                query_params=qp,
+                cookies=cookies,
+                key="utm_campaign",
+                sbjs_current=sbjs_current,
+                sbjs_first=sbjs_first,
+                sbjs_key="cmp",
+            ),
+            utm_content=_get_tracking_value(
+                query_params=qp,
+                cookies=cookies,
+                key="utm_content",
+                sbjs_current=sbjs_current,
+                sbjs_first=sbjs_first,
+                sbjs_key="cnt",
+            ),
+            utm_term=_get_tracking_value(
+                query_params=qp,
+                cookies=cookies,
+                key="utm_term",
+                sbjs_current=sbjs_current,
+                sbjs_first=sbjs_first,
+                sbjs_key="trm",
+            ),
+            yclid=yclid,
+            cm_id=_normalize_tracking_value(qp.get("cm_id"))
+                  or _normalize_tracking_value(_cookie_value(cookies, "cm_id")),
+            block=_normalize_tracking_value(qp.get("block"))
+                  or _normalize_tracking_value(_cookie_value(cookies, "block")),
+        )
+        session.add(education_visit)
+        session.commit()
+        session.refresh(education_visit)
+
+        logger.info(
+            f"utm_source={education_visit.utm_source} "
+            f"utm_medium={education_visit.utm_medium} "
+            f"utm_campaign={education_visit.utm_campaign} "
+            f"utm_content={education_visit.utm_content} "
+            f"yclid={education_visit.yclid}"
+        )
+
+        start_query = urlencode({"start": education_visit.id})
+        return RedirectResponse(f"{bot_url}?{start_query}", status_code=302)
