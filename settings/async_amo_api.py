@@ -11,7 +11,7 @@ import jwt
 logger = logging.getLogger(__name__)
 
 
-# ====== твои dataclasses (оставлены как есть) ======
+
 
 @dataclass
 class AmoLead:
@@ -25,6 +25,7 @@ class AmoLead:
     last_buy: int | str | None = None
     time_from_attestate: int | str | None = None
     paid_at: int | None = None
+    project: str | None = None
 
     @property
     def price(self) -> int | float | None:
@@ -51,60 +52,8 @@ class AmoCustomers:
 @dataclass
 class AmoResult:
     lead_obj: AmoLead
-    # contact_obj: AmoContact
     customer_obj: AmoCustomers
 
-# def build_amo_results(
-#     leads: list[AmoLead],
-#     contacts: list[AmoContact]
-# ) -> list[AmoResult]:
-#     logger.info(f'Количество объектов Лид: {len(leads)}')
-#     logger.info(f'Количество объектов Контакт: {len(contacts)}')
-#     result: list[AmoResult] = []
-#     for lead_obj in leads:
-#         lead_contact_id = lead_obj.contact_id
-#         for contact_obj in contacts:
-#             if lead_contact_id == contact_obj.contact_id:
-#                 result.append(AmoResult(lead_obj=lead_obj, contact_obj=contact_obj))
-#                 continue
-#     # Откидываем лиды с пустым значением даты отгрузки и сортируем список сделок по дате отгрузки
-#     result = sorted(filter(lambda x: x.lead_obj.shipment_at != 0, result), key=lambda x: x.lead_obj.shipment_at)
-#
-#     for index, record in enumerate(result):
-#         current_lead = record.lead_obj
-#         current_contact = record.contact_obj
-#
-#         try:
-#             # Высчитываем поле "Времени с момента аттестации"
-#             if current_contact.attestate_at and current_lead.shipment_at and current_lead.shipment_at > current_contact.attestate_at:
-#                 current_lead.time_from_attestate = current_lead.shipment_at - current_contact.attestate_at
-#             else:
-#                 current_lead.time_from_attestate = None
-#         except BaseException as error:
-#             current_lead.time_from_attestate = None
-#             logger.error(error)
-#
-#         # Считаем поле "Чистый выкуп до текущей покупки и дату прошлой покупки
-#         if index != 0:
-#             records_by_contact = list(filter(lambda x: x.contact_obj.customer_id == current_contact.customer_id, result[:index]))
-#             if records_by_contact:
-#                 clean_price = sum(record.lead_obj.price for record in records_by_contact)
-#                 current_lead.clean_price = clean_price
-#                 try:
-#                     if current_lead.shipment_at and records_by_contact[-1].lead_obj.shipment_at:
-#                         current_lead.last_buy = current_lead.shipment_at - records_by_contact[-1].lead_obj.shipment_at
-#                     else:
-#                         current_lead.last_buy = 0
-#                 except BaseException as error:
-#                     current_lead.last_buy = 0
-#                     logger.error(error)
-#                     logger.error(current_lead.shipment_at, records_by_contact[-1].lead_obj.shipment_at)
-#
-#             else:
-#                 current_lead.clean_price = 0
-#                 current_lead.last_buy = 0
-#
-#     return result
 
 
 def build_amo_results(
@@ -124,7 +73,10 @@ def build_amo_results(
     # result = sorted(filter(lambda x: x.lead_obj.shipment_at != 0, result), key=lambda x: x.lead_obj.shipment_at)
 
     # Второй вариант: без даты отгрузки не откидываем, сортируем по id сделки
-    result = sorted(result, key=lambda x: x.lead_obj.shipment_at)
+    # result = sorted(result, key=lambda x: x.lead_obj.shipment_at)
+
+    # Третий вариант, добавляем фильтр по проекту, проект "Крупные заказы - откидываем"
+    result = sorted(filter(lambda x: x.lead_obj.project != "Крупные заказы", result), key=lambda x: x.lead_obj.shipment_at)
 
     for index, record in enumerate(result):
         current_lead = record.lead_obj
@@ -619,6 +571,7 @@ class AmoCRMWrapperAsync:
         all_leads: list[AmoLead] = []
         shipment_field_id = 935651
         paid_at_field_id = 1104770
+        project_field_id = 938609
 
         while True:
             # query = (
@@ -676,7 +629,8 @@ class AmoCRMWrapperAsync:
                         close_at=lead.get("closed_at"),
                         contact_id=self._get_main_contact_id(lead),
                         shipment_at=self._get_custom_field_value(lead, shipment_field_id),
-                        paid_at=self._get_custom_field_value(lead, paid_at_field_id)
+                        paid_at=self._get_custom_field_value(lead, paid_at_field_id),
+                        project=self._get_custom_field_value(lead, project_field_id)
                     )
                 )
 
