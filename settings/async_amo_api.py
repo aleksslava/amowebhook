@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
@@ -713,6 +714,32 @@ class AmoCRMWrapperAsync:
     async def get_contact_by_id(self, contact_id) -> dict:
         url = f"/api/v4/contacts/{contact_id}"
         resp = await self._base_request(type="get", endpoint=url)
+        return resp.json()
+
+    async def get_lead_with_catalog_elements(self, lead_id) -> dict[str, Any]:
+        url = f"/api/v4/leads/{lead_id}"
+        resp = await self._base_request(
+            type="get_param",
+            endpoint=url,
+            parameters="with=catalog_elements",
+        )
+        return resp.json()
+
+    async def get_catalogs_elements(self, catalog_id, elements: dict) -> dict[str, Any]:
+        url = f"/api/v4/catalogs/{catalog_id}/elements"
+
+        element_ids: list[int] = []
+        for element_id in (elements or {}).keys():
+            try:
+                element_ids.append(int(element_id))
+            except (TypeError, ValueError):
+                logger.warning("Некорректный id элемента каталога: %s", element_id)
+
+        if not element_ids:
+            return {}
+
+        query = "&".join(f"filter[id][]={element_id}" for element_id in sorted(set(element_ids)))
+        resp = await self._base_request(type="get_param", endpoint=url, parameters=query)
         return resp.json()
 
 

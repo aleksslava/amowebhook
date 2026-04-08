@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Коммерческое предложение</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --hp-blue: rgb(0, 111, 255);
+            --hp-blue-dark: rgb(0, 67, 224);
+            --hp-ink: #242424;
+            --hp-muted: #5d6470;
+            --hp-line: #dce5f7;
+            --hp-soft: #f4f8ff;
+            --hp-black: #141414;
+            --hp-white: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Montserrat", Arial, Helvetica, sans-serif;
+            color: var(--hp-ink);
+            background:
+                    radial-gradient(circle at 12% -5%, rgba(0, 111, 255, 0.14), transparent 38%),
+                    radial-gradient(circle at 92% 0%, rgba(0, 67, 224, 0.10), transparent 45%),
+                    linear-gradient(180deg, #eef4ff 0%, #f7f9fd 100%);
+            padding: 28px 14px;
+        }
+
+        .proposal {
+            max-width: 1080px;
+            margin: 0 auto;
+            background: var(--hp-white);
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 22px 70px rgba(17, 33, 68, 0.12);
+        }
+
+        .topbar {
+            position: relative;
+            background: var(--hp-black);
+            color: var(--hp-white);
+            padding: 20px 34px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .topbar::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--hp-blue), #2b87ff, var(--hp-blue-dark));
+        }
+
+        .brand {
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .brand-sub {
+            display: block;
+            margin-top: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.75);
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+        }
+
+        .meta {
+            text-align: right;
+            font-size: 13px;
+            line-height: 1.55;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .content {
+            padding: 30px 34px 34px;
+        }
+
+        .title-block {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: end;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .title {
+            margin: 0;
+            font-size: clamp(24px, 4vw, 34px);
+            line-height: 1.08;
+            font-weight: 800;
+            color: var(--hp-ink);
+        }
+
+        .title span {
+            color: var(--hp-blue);
+        }
+
+        .date-chip {
+            background: var(--hp-soft);
+            color: var(--hp-blue-dark);
+            border: 1px solid #cfe0ff;
+            border-radius: 999px;
+            padding: 7px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .details {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(220px, 1fr));
+            gap: 12px 18px;
+            margin-bottom: 24px;
+            padding: 14px 16px;
+            border: 1px solid var(--hp-line);
+            background: #fbfdff;
+            border-radius: 12px;
+        }
+
+        .details p {
+            margin: 0;
+            font-size: 13px;
+            color: var(--hp-muted);
+            line-height: 1.4;
+        }
+
+        .details strong {
+            color: var(--hp-ink);
+            font-weight: 600;
+        }
+
+        .products {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            overflow: hidden;
+            border: 1px solid var(--hp-line);
+            border-radius: 14px;
+        }
+
+        .products thead th {
+            background: linear-gradient(180deg, #0a78ff 0%, var(--hp-blue) 100%);
+            color: var(--hp-white);
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            padding: 13px 10px;
+            text-align: left;
+        }
+
+        .products th.align-right,
+        .products td.align-right {
+            text-align: right;
+        }
+
+        .products tbody tr:nth-child(even) {
+            background: #f8fbff;
+        }
+
+        .products tbody td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #e6eefb;
+            font-size: 13px;
+            vertical-align: top;
+        }
+
+        .products tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .products tfoot td {
+            padding: 14px 10px;
+            font-size: 14px;
+            font-weight: 700;
+            border-top: 2px solid var(--hp-line);
+            background: #edf4ff;
+        }
+
+        .totals-label {
+            color: var(--hp-ink);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .totals-value {
+            color: var(--hp-blue-dark);
+            font-size: 16px;
+        }
+
+        .footer {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            align-items: end;
+        }
+
+        .note {
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--hp-muted);
+        }
+
+        .sign {
+            text-align: right;
+            font-size: 12px;
+            color: var(--hp-muted);
+            line-height: 1.5;
+        }
+
+        .sign strong {
+            display: block;
+            color: var(--hp-ink);
+            margin-top: 2px;
+            font-size: 13px;
+        }
+
+        @media (max-width: 860px) {
+            .topbar {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 18px 20px;
+            }
+
+            .meta {
+                text-align: left;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .title-block {
+                grid-template-columns: 1fr;
+            }
+
+            .details {
+                grid-template-columns: 1fr;
+            }
+
+            .products {
+                font-size: 12px;
+            }
+
+            .footer {
+                grid-template-columns: 1fr;
+            }
+
+            .sign {
+                text-align: left;
+            }
+        }
+
+        @media print {
+            body {
+                background: #fff;
+                padding: 0;
+            }
+
+            .proposal {
+                max-width: 100%;
+                border-radius: 0;
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+<main class="proposal">
+    <header class="topbar">
+        <div>
+            <div class="brand">
+                HiTE PRO
+                <span class="brand-sub">Коммерческое предложение</span>
+            </div>
+        </div>
+        <div class="meta">
+            <div>№ {{ proposal_number }}</div>
+            <div>от {{ proposal_date }}</div>
+            <div>{{ company_phone | default("+7 (495) 256-33-00") }}</div>
+        </div>
+    </header>
+
+    <section class="content">
+        <div class="title-block">
+            <h1 class="title">Предложение № <span>{{ lead_id }} от {{ proposal_date }}</span></h1>
+            <div class="date-chip">Срок действия: {{ valid_until }}</div>
+        </div>
+
+        <div class="details">
+            <p><strong>Компания:</strong> {{ company_name | default("ООО «ХАЙТ ПРО»") }}</p>
+            <p><strong>Контакт:</strong> {{ manager_name }}</p>
+            <p><strong>Email:</strong> {{ manager_email }}</p>
+            <p><strong>Телефон:</strong> {{ manager_phone }}</p>
+        </div>
+
+        <table class="products">
+            <thead>
+            <tr>
+                <th style="width: 52px;">№</th>
+                <th>Наименование</th>
+                <th class="align-right" style="width: 120px;">Цена</th>
+                <th class="align-right" style="width: 110px;">Скидка</th>
+                <th class="align-right" style="width: 110px;">Количество</th>
+                <th class="align-right" style="width: 150px;">Сумма</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for item in products %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ item.name }}</td>
+                    <td class="align-right">{{ item.price }}</td>
+                    <td class="align-right">{{ item.discount }}</td>
+                    <td class="align-right">{{ item.quantity }}</td>
+                    <td class="align-right">{{ item.total }}</td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="6" style="text-align: center; color: #6b7380;">Список товаров пуст</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+            <tfoot>
+            <tr>
+                <td colspan="5" class="align-right totals-label">Итог</td>
+                <td class="align-right totals-value">{{ total_amount }}</td>
+            </tr>
+            </tfoot>
+        </table>
+
+        <div class="footer">
+            <div class="note">
+                Условия поставки, сроки и дополнительные работы согласуются отдельно и фиксируются в счете/договоре.
+            </div>
+            <div class="sign">
+                С уважением,
+                <strong>{{ manager_name }}</strong>
+            </div>
+        </div>
+    </section>
+</main>
+</body>
+</html>

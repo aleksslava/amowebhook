@@ -8,6 +8,7 @@ import requests
 from aiogram import Bot
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
@@ -15,7 +16,14 @@ from models import Base, EducationVisit
 from settings.async_amo_api import AmoCRMWrapperAsync, build_amo_results
 from settings.google_sheets import GoogleSheetsIntegration
 from settings.settings import load_config
-from utils.utils import Order, conver_timestamp_to_days, convert_data, correct_phone
+from utils.utils import (
+    Order,
+    conver_timestamp_to_days,
+    convert_data,
+    correct_phone,
+    get_catalog_elements_from_lead,
+    get_items_to_kp,
+)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -28,6 +36,7 @@ config = load_config()
 bot = Bot(token=config.tg_bot.token)
 
 app = FastAPI()
+templates = Jinja2Templates(directory="services/templates")
 
 db_connect_args = {"check_same_thread": False} if config.database_url.startswith("sqlite") else {}
 db_engine = create_engine(config.database_url, connect_args=db_connect_args)
@@ -529,3 +538,56 @@ async def education_max(request: Request):
 
         start_query = urlencode({"start": education_visit.id})
         return RedirectResponse(f"{bot_url}?{start_query}", status_code=302)
+
+
+
+@app.get("/kp")
+async def get_kp(request: Request, lead_id: int):
+    lead_response = await amo_api.get_lead_with_catalog_elements(lead_id=lead_id)
+    lead_catalog_elements = get_catalog_elements_from_lead(lead_response)
+
+    if not lead_catalog_elements:
+        raise HTTPException(status_code=404, detail="В сделке нет элементов каталога")
+
+    catalog_id = None
+    lead_embedded_elements = lead_response.get("_embedded", {}).get("catalog_elements", [])
+    for element in lead_embedded_elements:
+        metadata = element.get("metadata") or {}
+        current_catalog_id = metadata.get("catalog_id")
+        if current_catalog_id is not None:
+            catalog_id = int(current_catalog_id)
+            break
+
+    if catalog_id is None:
+        raise HTTPException(status_code=400, detail="Не найден catalog_id в элементах сделки")
+
+    catalogs_elements_response = await amo_api.get_catalogs_elements(
+        catalog_id=catalog_id,
+        elements=lead_catalog_elements,
+    )
+    products = get_items_to_kp(catalogs_elements_response, lead_catalog_elements)
+
+    total_amount_value = 0.0
+    for product in products:
+        try:
+            total_amount_value += float(product.get("total", 0))
+        except (TypeError, ValueError):
+            continue
+
+    total_amount = int(total_amount_value) if total_amount_value.is_integer() else total_amount_value
+
+    today = datetime.datetime.now().strftime("%d.%m.%Y")
+    context = {
+        "request": request,
+        "proposal_number": f"KP-{lead_id}",
+        "proposal_date": today,
+        "valid_until": today,
+        "client_name": f"Сделка №{lead_id}",
+        "company_name": "ООО «ХАЙТ ПРО»",
+        "manager_name": "",
+        "manager_email": "",
+        "manager_phone": "",
+        "products": products,
+        "total_amount": total_amount,
+    }
+    return templates.TemplateResponse("test.html", context)
