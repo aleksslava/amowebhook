@@ -27,6 +27,7 @@ class AmoLead:
     last_buy: int | str | None = None
     time_from_attestate: int | str | None = None
 
+
     @property
     def price(self) -> int | float | None:
         return self.lead_price
