@@ -90,6 +90,7 @@ def _run_chromium_pdf_export(
         "--no-first-run",
         "--allow-file-access-from-files",
         f"--user-data-dir={profile_dir}",
+        "--no-pdf-header-footer",
         "--print-to-pdf-no-header",
         f"--print-to-pdf={pdf_output_path}",
         html_uri,
