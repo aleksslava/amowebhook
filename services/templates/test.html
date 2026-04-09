@@ -526,12 +526,12 @@
                 <tr>
                     <td>{{ loop.index }}</td>
                     <td>{{ item.name }}</td>
-                    <td class="align-right">{{ item.price | grouped_number }} руб.</td>
+                    <td class="align-right">{{ item.price | grouped_number }} ₽.</td>
                     {% if ns.show_discount %}
                     <td class="align-right">{{ item.discount }}</td>
                     {% endif %}
                     <td class="align-right">{{ item.quantity }} шт.</td>
-                    <td class="align-right">{{ item.total | grouped_number }} руб.</td>
+                    <td class="align-right">{{ item.total | grouped_number }} ₽.</td>
                 </tr>
             {% else %}
                 <tr>
@@ -542,7 +542,7 @@
             <tfoot>
             <tr>
                 <td colspan="{{ 5 if ns.show_discount else 4 }}" class="align-right totals-label">Итог</td>
-                <td class="align-right totals-value">{{ total_amount | grouped_number }} руб.</td>
+                <td class="align-right totals-value">{{ total_amount | grouped_number }} ₽.</td>
             </tr>
             </tfoot>
         </table>
