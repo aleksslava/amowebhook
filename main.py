@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import json
 import logging
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from urllib.parse import parse_qs, unquote_plus, urlencode
 
@@ -59,6 +60,37 @@ google_sheets = (
     GoogleSheetsIntegration(config.google_sheets_webhook_url)
     if config.google_sheets_webhook_url else None
 )
+
+
+def _format_grouped_number(value: int | float | str | None) -> str:
+    if value in (None, ""):
+        return ""
+
+    raw_value = str(value).replace(" ", "").replace(",", ".")
+    try:
+        number = Decimal(raw_value)
+    except (InvalidOperation, ValueError):
+        return str(value)
+
+    normalized = format(number.normalize(), "f")
+    sign = ""
+    if normalized.startswith("-"):
+        sign = "-"
+        normalized = normalized[1:]
+
+    if "." in normalized:
+        integer_part, fraction_part = normalized.split(".", 1)
+        fraction_part = fraction_part.rstrip("0")
+    else:
+        integer_part, fraction_part = normalized, ""
+
+    grouped_integer = f"{int(integer_part):,}".replace(",", " ")
+    if fraction_part:
+        return f"{sign}{grouped_integer},{fraction_part}"
+    return f"{sign}{grouped_integer}"
+
+
+templates.env.filters["grouped_number"] = _format_grouped_number
 
 
 @app.on_event("startup")
@@ -594,8 +626,8 @@ async def get_kp(request: Request, lead_id: int):
         "proposal_date": proposal_date,
         "valid_until": valid_until,
         "client_name": f"Сделка № {lead_id}",
-        "company_name": "ООО «ХАЙТ ПРО»",
-        "manager_name": "",
+        "company_name": "ООО «ХАЙТ ПРО ИНЖИНИРИНГ»",
+        "manager_name": "Отдел продаж компании HiTE PRO",
         "manager_email": "sales@hite-pro.ru",
         "manager_phone": "+7 (495) 256-33-00",
         "products": products,
