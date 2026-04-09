@@ -2,9 +2,11 @@ import asyncio
 import datetime
 import json
 import logging
+import tempfile
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from urllib.parse import parse_qs, unquote_plus, urlencode
+from uuid import uuid4
 
 import requests
 from aiogram import Bot
@@ -13,8 +15,10 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
+from starlette.background import BackgroundTask
 
 from models import Base, EducationVisit
+from services.test_kp_to_pdf import render_template_to_pdf
 from settings.async_amo_api import AmoCRMWrapperAsync, build_amo_results
 from settings.google_sheets import GoogleSheetsIntegration
 from settings.settings import load_config
@@ -40,6 +44,7 @@ bot = Bot(token=config.tg_bot.token)
 app = FastAPI()
 templates = Jinja2Templates(directory="services/templates")
 KP_IMAGE_PATH = Path("services/templates/img01.png")
+KP_TEMPLATE_PATH = Path("services/templates/test.html")
 
 db_connect_args = {"check_same_thread": False} if config.database_url.startswith("sqlite") else {}
 db_engine = create_engine(config.database_url, connect_args=db_connect_args)
@@ -582,6 +587,15 @@ async def get_kp_image() -> FileResponse:
         raise HTTPException(status_code=404, detail="KP image not found")
     return FileResponse(KP_IMAGE_PATH)
 
+
+def _cleanup_generated_file(file_path: str | Path) -> None:
+    path = Path(file_path)
+    try:
+        path.unlink(missing_ok=True)
+    except OSError as error:
+        logger.warning(f"Failed to remove generated file {path}: {error}")
+
+
 @app.get("/kp")
 async def get_kp(request: Request, lead_id: int):
     lead_response = await amo_api.get_lead_with_catalog_elements(lead_id=lead_id)
@@ -635,3 +649,29 @@ async def get_kp(request: Request, lead_id: int):
         'lead_id': lead_id,
     }
     return templates.TemplateResponse("test.html", context)
+
+
+@app.get("/kp/pdf")
+async def get_kp_pdf(request: Request, lead_id: int) -> FileResponse:
+    kp_html_response = await get_kp(request=request, lead_id=lead_id)
+    context = dict(kp_html_response.context)
+
+    pdf_output_path = Path(tempfile.gettempdir()) / f"kp_{lead_id}_{uuid4().hex}.pdf"
+    try:
+        render_template_to_pdf(
+            template_path=KP_TEMPLATE_PATH,
+            context=context,
+            output_pdf_path=pdf_output_path,
+        )
+    except Exception as error:
+        _cleanup_generated_file(pdf_output_path)
+        logger.exception(f"Failed to generate KP PDF for lead_id={lead_id}: {error}")
+        raise HTTPException(status_code=500, detail="Failed to generate PDF")
+
+    return FileResponse(
+        path=pdf_output_path,
+        media_type="application/pdf",
+        filename=f"kp-{lead_id}.pdf",
+        content_disposition_type="inline",
+        background=BackgroundTask(_cleanup_generated_file, pdf_output_path),
+    )
