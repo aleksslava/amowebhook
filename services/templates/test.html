@@ -205,6 +205,20 @@
             font-size: 16px;
         }
 
+        .proposal-image {
+            margin-top: 20px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--hp-line);
+            background: #fff;
+        }
+
+        .proposal-image img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
         .footer {
             margin-top: 20px;
             display: grid;
@@ -269,16 +283,190 @@
             }
         }
 
+        @page {
+            size: A4 portrait;
+            margin: 12mm 10mm 14mm;
+        }
+
         @media print {
+            *,
+            *::before,
+            *::after {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            html,
             body {
+                width: 100%;
+            }
+
+            body {
+                margin: 0;
                 background: #fff;
                 padding: 0;
+                font-size: 11pt;
+                line-height: 1.35;
             }
 
             .proposal {
                 max-width: 100%;
-                border-radius: 0;
+                border-radius: 12px;
                 box-shadow: none;
+                overflow: visible;
+            }
+
+            .topbar,
+            .title-block,
+            .details,
+            .footer {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+
+            .topbar {
+                padding: 0 0 6mm;
+                border-radius: 12px 12px 0 0;
+                overflow: hidden;
+            }
+
+            .topbar::after {
+                height: 2px;
+            }
+
+            .brand {
+                font-size: 19pt;
+            }
+
+            .brand-sub {
+                font-size: 8.5pt;
+            }
+
+            .meta {
+                font-size: 9pt;
+                line-height: 1.4;
+            }
+
+            .content {
+                padding: 6mm 0 0;
+            }
+
+            .title {
+                font-size: 18pt;
+                line-height: 1.12;
+            }
+
+            .date-chip {
+                padding: 2.5mm 4mm;
+                font-size: 9pt;
+            }
+
+            .details {
+                margin-bottom: 5mm;
+                padding: 3.5mm 4mm;
+                border-radius: 8px;
+            }
+
+            .details p {
+                font-size: 9.5pt;
+            }
+
+            .products {
+                border-collapse: separate;
+                border-spacing: 0;
+                border-radius: 12px;
+                overflow: hidden;
+                table-layout: fixed;
+                font-size: 9pt;
+            }
+
+            .products thead th:first-child {
+                border-top-left-radius: 12px;
+            }
+
+            .products thead th:last-child {
+                border-top-right-radius: 12px;
+            }
+
+            .products tfoot td:first-child {
+                border-bottom-left-radius: 12px;
+            }
+
+            .products tfoot td:last-child {
+                border-bottom-right-radius: 12px;
+            }
+
+            .products thead {
+                display: table-header-group;
+            }
+
+            .products tfoot {
+                display: table-footer-group;
+            }
+
+            .products tr,
+            .products th,
+            .products td,
+            .products tbody tr {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+
+            .products thead th {
+                font-size: 8.5pt;
+                line-height: 1.25;
+                padding: 2.5mm 2mm;
+            }
+
+            .products tbody td {
+                padding: 2.3mm 2mm;
+                font-size: 9pt;
+                line-height: 1.3;
+            }
+
+            .products tfoot td {
+                padding: 2.8mm 2mm;
+                font-size: 10pt;
+            }
+
+            .products th,
+            .products td {
+                word-break: break-word;
+                overflow-wrap: anywhere;
+            }
+
+            .products tbody tr:nth-child(even) {
+                background: #f8fbff !important;
+            }
+
+            .proposal-image {
+                margin-top: 5mm;
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+
+            .footer {
+                margin-top: 5mm;
+                padding-top: 3mm;
+                border-top: 1px solid var(--hp-line);
+            }
+
+            .note,
+            .sign {
+                font-size: 9pt;
+                line-height: 1.35;
+            }
+
+            .sign strong {
+                font-size: 9.5pt;
+            }
+
+            p,
+            h1,
+            h2,
+            h3 {
+                orphans: 3;
+                widows: 3;
             }
         }
     </style>
@@ -306,11 +494,19 @@
         </div>
 
         <div class="details">
-            <p><strong>Компания:</strong> {{ company_name | default("ООО «ХАЙТ ПРО»") }}</p>
-            <p><strong>Контакт:</strong> {{ manager_name }}</p>
+            <p><strong>Компания:</strong> {{ company_name | default("ООО «ХАЙТ ПРО ИНЖИНИРИНГ»") }}</p>
+            <p><strong>Контакт:</strong> {{ manager_name | default("Отдел продаж компании HiTE PRO") }}</p>
             <p><strong>Email:</strong> {{ manager_email }}</p>
             <p><strong>Телефон:</strong> {{ manager_phone }}</p>
         </div>
+
+        {% set ns = namespace(show_discount=false) %}
+        {% for item in products %}
+            {% set discount_str = item.discount | default('', true) | string | trim | replace(' ', '') | replace('%', '') | replace(',', '.') %}
+            {% if discount_str and discount_str != '0' and discount_str != '0.0' %}
+                {% set ns.show_discount = true %}
+            {% endif %}
+        {% endfor %}
 
         <table class="products">
             <thead>
@@ -318,7 +514,9 @@
                 <th style="width: 52px;">№</th>
                 <th>Наименование</th>
                 <th class="align-right" style="width: 120px;">Цена</th>
+                {% if ns.show_discount %}
                 <th class="align-right" style="width: 110px;">Скидка</th>
+                {% endif %}
                 <th class="align-right" style="width: 110px;">Количество</th>
                 <th class="align-right" style="width: 150px;">Сумма</th>
             </tr>
@@ -329,31 +527,37 @@
                     <td>{{ loop.index }}</td>
                     <td>{{ item.name }}</td>
                     <td class="align-right">{{ item.price }}</td>
+                    {% if ns.show_discount %}
                     <td class="align-right">{{ item.discount }}</td>
+                    {% endif %}
                     <td class="align-right">{{ item.quantity }}</td>
                     <td class="align-right">{{ item.total }}</td>
                 </tr>
             {% else %}
                 <tr>
-                    <td colspan="6" style="text-align: center; color: #6b7380;">Список товаров пуст</td>
+                    <td colspan="{{ 6 if ns.show_discount else 5 }}" style="text-align: center; color: #6b7380;">Список товаров пуст</td>
                 </tr>
             {% endfor %}
             </tbody>
             <tfoot>
             <tr>
-                <td colspan="5" class="align-right totals-label">Итог</td>
+                <td colspan="{{ 5 if ns.show_discount else 4 }}" class="align-right totals-label">Итог</td>
                 <td class="align-right totals-value">{{ total_amount }}</td>
             </tr>
             </tfoot>
         </table>
 
+        <div class="proposal-image">
+            <img src="{{ request.url_for('kp_image') }}" alt="Иллюстрация коммерческого предложения">
+        </div>
+
         <div class="footer">
             <div class="note">
-                Условия поставки, сроки и дополнительные работы согласуются отдельно и фиксируются в счете/договоре.
+                Условия поставки, сроки и дополнительные работы согласуются отдельно и фиксируются отдельно при оплате заказа.
             </div>
             <div class="sign">
                 С уважением,
-                <strong>{{ manager_name }}</strong>
+                <strong>{{ manager_name | default("Отдел продаж компании HiTE PRO") }}</strong>
             </div>
         </div>
     </section>

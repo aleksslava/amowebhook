@@ -2,12 +2,13 @@ import asyncio
 import datetime
 import json
 import logging
+from pathlib import Path
 from urllib.parse import parse_qs, unquote_plus, urlencode
 
 import requests
 from aiogram import Bot
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
@@ -37,6 +38,7 @@ bot = Bot(token=config.tg_bot.token)
 
 app = FastAPI()
 templates = Jinja2Templates(directory="services/templates")
+KP_IMAGE_PATH = Path("services/templates/img01.png")
 
 db_connect_args = {"check_same_thread": False} if config.database_url.startswith("sqlite") else {}
 db_engine = create_engine(config.database_url, connect_args=db_connect_args)
@@ -541,6 +543,13 @@ async def education_max(request: Request):
 
 
 
+
+@app.get("/kp/assets/img01.png", include_in_schema=False, name="kp_image")
+async def get_kp_image() -> FileResponse:
+    if not KP_IMAGE_PATH.exists():
+        raise HTTPException(status_code=404, detail="KP image not found")
+    return FileResponse(KP_IMAGE_PATH)
+
 @app.get("/kp")
 async def get_kp(request: Request, lead_id: int):
     lead_response = await amo_api.get_lead_with_catalog_elements(lead_id=lead_id)
@@ -576,18 +585,21 @@ async def get_kp(request: Request, lead_id: int):
 
     total_amount = int(total_amount_value) if total_amount_value.is_integer() else total_amount_value
 
-    today = datetime.datetime.now().strftime("%d.%m.%Y")
+    today = datetime.date.today()
+    proposal_date = today.strftime("%d.%m.%Y")
+    valid_until = (today + datetime.timedelta(days=3)).strftime("%d.%m.%Y")
     context = {
         "request": request,
-        "proposal_number": f"KP-{lead_id}",
-        "proposal_date": today,
-        "valid_until": today,
-        "client_name": f"Сделка №{lead_id}",
+        "proposal_number": lead_id,
+        "proposal_date": proposal_date,
+        "valid_until": valid_until,
+        "client_name": f"Сделка № {lead_id}",
         "company_name": "ООО «ХАЙТ ПРО»",
         "manager_name": "",
-        "manager_email": "",
-        "manager_phone": "",
+        "manager_email": "sales@hite-pro.ru",
+        "manager_phone": "+7 (495) 256-33-00",
         "products": products,
         "total_amount": total_amount,
+        'lead_id': lead_id,
     }
     return templates.TemplateResponse("test.html", context)
