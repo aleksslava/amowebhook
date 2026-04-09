@@ -68,11 +68,28 @@ def _find_chromium_binary() -> str:
     )
 
 
-def _run_chromium_pdf_export(chromium_bin: str, html_uri: str, pdf_output_path: Path) -> None:
+def _run_chromium_pdf_export(
+    chromium_bin: str,
+    html_uri: str,
+    pdf_output_path: Path,
+    work_dir: Path,
+) -> None:
+    runtime_dir = work_dir / "xdg_runtime"
+    profile_dir = work_dir / "chromium_profile"
+    runtime_dir.mkdir(parents=True, exist_ok=True)
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    os.chmod(runtime_dir, 0o700)
+
+    env = os.environ.copy()
+    env.setdefault("XDG_RUNTIME_DIR", str(runtime_dir))
+
     common_flags = [
         "--disable-gpu",
         "--no-sandbox",
+        "--disable-dev-shm-usage",
+        "--no-first-run",
         "--allow-file-access-from-files",
+        f"--user-data-dir={profile_dir}",
         "--print-to-pdf-no-header",
         f"--print-to-pdf={pdf_output_path}",
         html_uri,
@@ -81,8 +98,8 @@ def _run_chromium_pdf_export(chromium_bin: str, html_uri: str, pdf_output_path: 
     attempt_errors: list[str] = []
     for headless_mode in ("--headless=new", "--headless"):
         command = [chromium_bin, headless_mode, *common_flags]
-        completed = subprocess.run(command, capture_output=True, text=True)
-        if completed.returncode == 0 and pdf_output_path.exists():
+        completed = subprocess.run(command, capture_output=True, text=True, env=env)
+        if completed.returncode == 0 and pdf_output_path.exists() and pdf_output_path.stat().st_size > 0:
             return
 
         stderr_text = (completed.stderr or "").strip()
@@ -166,13 +183,14 @@ def render_template_to_pdf(
         resolved_output_pdf.unlink()
 
     chromium_bin = _find_chromium_binary()
-    with tempfile.TemporaryDirectory(prefix="kp_pdf_") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="kp_pdf_", dir=str(resolved_output_pdf.parent)) as temp_dir:
         temp_html_path = Path(temp_dir) / "rendered_kp.html"
         temp_html_path.write_text(rendered_html, encoding="utf-8")
         _run_chromium_pdf_export(
             chromium_bin=chromium_bin,
             html_uri=temp_html_path.as_uri(),
             pdf_output_path=resolved_output_pdf,
+            work_dir=Path(temp_dir),
         )
 
     if not resolved_output_pdf.exists():

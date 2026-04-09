@@ -2,7 +2,6 @@ import asyncio
 import datetime
 import json
 import logging
-import tempfile
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from urllib.parse import parse_qs, unquote_plus, urlencode
@@ -45,6 +44,7 @@ app = FastAPI()
 templates = Jinja2Templates(directory="services/templates")
 KP_IMAGE_PATH = Path("services/templates/img01.png")
 KP_TEMPLATE_PATH = Path("services/templates/test.html")
+KP_PDF_TMP_DIR = Path("services/tmp_pdf")
 
 db_connect_args = {"check_same_thread": False} if config.database_url.startswith("sqlite") else {}
 db_engine = create_engine(config.database_url, connect_args=db_connect_args)
@@ -655,8 +655,10 @@ async def get_kp(request: Request, lead_id: int):
 async def get_kp_pdf(request: Request, lead_id: int) -> FileResponse:
     kp_html_response = await get_kp(request=request, lead_id=lead_id)
     context = dict(kp_html_response.context)
+    context.pop("request", None)
 
-    pdf_output_path = Path(tempfile.gettempdir()) / f"kp_{lead_id}_{uuid4().hex}.pdf"
+    KP_PDF_TMP_DIR.mkdir(parents=True, exist_ok=True)
+    pdf_output_path = (KP_PDF_TMP_DIR / f"kp_{lead_id}_{uuid4().hex}.pdf").resolve()
     try:
         render_template_to_pdf(
             template_path=KP_TEMPLATE_PATH,
