@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Mapping
@@ -27,30 +28,54 @@ class _TemplateRequestShim:
         return image_path.as_uri()
 
 
-def _find_chromium_binary() -> str:
+def _is_snap_wrapped_binary(binary_path: str) -> bool:
+    path_obj = Path(binary_path)
+    try:
+        resolved = path_obj.resolve()
+    except OSError:
+        resolved = path_obj
+
+    normalized = str(resolved).replace("\\", "/")
+    if normalized.startswith("/snap/"):
+        return True
+
+    try:
+        if path_obj.is_file() and path_obj.stat().st_size <= 32 * 1024:
+            content = path_obj.read_text(encoding="utf-8", errors="ignore")
+            if "snap run" in content or "snap-confine" in content:
+                return True
+    except OSError:
+        return False
+
+    return False
+
+
+def _find_chromium_binaries() -> list[str]:
     env_candidates = (
         os.getenv("CHROMIUM_PATH"),
         os.getenv("CHROME_PATH"),
         os.getenv("EDGE_PATH"),
     )
+    discovered: list[str] = []
     for candidate in env_candidates:
         if candidate and Path(candidate).exists():
-            return candidate
+            discovered.append(str(Path(candidate)))
 
     binary_names = (
-        "chrome",
-        "chromium",
-        "chromium-browser",
         "google-chrome",
+        "google-chrome-stable",
+        "chrome",
         "msedge",
         "microsoft-edge",
-        "brave",
         "brave-browser",
+        "brave",
+        "chromium",
+        "chromium-browser",
     )
     for binary_name in binary_names:
         found_path = shutil.which(binary_name)
         if found_path:
-            return found_path
+            discovered.append(found_path)
 
     windows_candidates = (
         r"C:\Program Files\Google\Chrome\Application\chrome.exe",
@@ -60,7 +85,18 @@ def _find_chromium_binary() -> str:
     )
     for candidate in windows_candidates:
         if Path(candidate).exists():
-            return candidate
+            discovered.append(candidate)
+
+    unique_discovered: list[str] = []
+    seen: set[str] = set()
+    for candidate in discovered:
+        if candidate in seen:
+            continue
+        unique_discovered.append(candidate)
+        seen.add(candidate)
+
+    if unique_discovered:
+        return sorted(unique_discovered, key=_is_snap_wrapped_binary)
 
     raise FileNotFoundError(
         "Chromium executable not found. Set CHROMIUM_PATH (or CHROME_PATH) "
@@ -97,18 +133,29 @@ def _run_chromium_pdf_export(
     ]
 
     attempt_errors: list[str] = []
-    for headless_mode in ("--headless=new", "--headless"):
-        command = [chromium_bin, headless_mode, *common_flags]
-        completed = subprocess.run(command, capture_output=True, text=True, env=env)
-        if completed.returncode == 0 and pdf_output_path.exists() and pdf_output_path.stat().st_size > 0:
-            return
+    for retry_idx in range(3):
+        for headless_mode in ("--headless=new", "--headless"):
+            command = [chromium_bin, headless_mode, *common_flags]
+            completed = subprocess.run(command, capture_output=True, text=True, env=env)
+            if completed.returncode == 0 and pdf_output_path.exists() and pdf_output_path.stat().st_size > 0:
+                return
 
-        stderr_text = (completed.stderr or "").strip()
-        stdout_text = (completed.stdout or "").strip()
-        attempt_errors.append(
-            f"{headless_mode}: returncode={completed.returncode}; "
-            f"stderr={stderr_text or '<empty>'}; stdout={stdout_text or '<empty>'}"
-        )
+            stderr_text = (completed.stderr or "").strip()
+            stdout_text = (completed.stdout or "").strip()
+            attempt_errors.append(
+                f"retry={retry_idx + 1} {headless_mode}: returncode={completed.returncode}; "
+                f"stderr={stderr_text or '<empty>'}; stdout={stdout_text or '<empty>'}"
+            )
+
+            if "is not a snap cgroup for tag" in stderr_text:
+                raise RuntimeError(
+                    "Detected snap cgroup isolation error. "
+                    "Use a non-snap Chromium/Chrome binary (for example via CHROMIUM_PATH). "
+                    + " | ".join(attempt_errors)
+                )
+
+        if retry_idx < 2:
+            time.sleep(1.0 + retry_idx)
 
     raise RuntimeError("Failed to export PDF via Chromium. " + " | ".join(attempt_errors))
 
@@ -183,16 +230,27 @@ def render_template_to_pdf(
     if resolved_output_pdf.exists():
         resolved_output_pdf.unlink()
 
-    chromium_bin = _find_chromium_binary()
+    chromium_bins = _find_chromium_binaries()
     with tempfile.TemporaryDirectory(prefix="kp_pdf_", dir=str(resolved_output_pdf.parent)) as temp_dir:
         temp_html_path = Path(temp_dir) / "rendered_kp.html"
         temp_html_path.write_text(rendered_html, encoding="utf-8")
-        _run_chromium_pdf_export(
-            chromium_bin=chromium_bin,
-            html_uri=temp_html_path.as_uri(),
-            pdf_output_path=resolved_output_pdf,
-            work_dir=Path(temp_dir),
-        )
+        last_error: RuntimeError | None = None
+        per_binary_errors: list[str] = []
+
+        for chromium_bin in chromium_bins:
+            try:
+                _run_chromium_pdf_export(
+                    chromium_bin=chromium_bin,
+                    html_uri=temp_html_path.as_uri(),
+                    pdf_output_path=resolved_output_pdf,
+                    work_dir=Path(temp_dir),
+                )
+                break
+            except RuntimeError as error:
+                last_error = error
+                per_binary_errors.append(f"{chromium_bin}: {error}")
+        else:
+            raise RuntimeError("Failed to export PDF via Chromium candidates. " + " || ".join(per_binary_errors)) from last_error
 
     if not resolved_output_pdf.exists():
         raise RuntimeError(f"PDF was not created: {resolved_output_pdf}")
