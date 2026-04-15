@@ -602,6 +602,9 @@ async def get_kp(request: Request, lead_id: int):
     lead_response = await amo_api.get_lead_with_catalog_elements(lead_id=lead_id)
     lead_catalog_elements = get_catalog_elements_from_lead(lead_response)
     project = amo_api._get_custom_field_value(lead_response, project_field_id)
+    responsible_manager_id = lead_response.get("responsible_manager_id")
+    responsible_manager = await amo_api.get_responsible_user_by_id(responsible_manager_id)
+    responsible_manager_name = responsible_manager.get('name')
 
 
     if not lead_catalog_elements:
@@ -644,7 +647,7 @@ async def get_kp(request: Request, lead_id: int):
         "valid_until": valid_until,
         "client_name": f"Сделка № {lead_id}",
         "company_name": "ООО «ХАЙТ ПРО ИНЖИНИРИНГ»",
-        "manager_name": "Отдел продаж компании HiTE PRO",
+        "manager_name": responsible_manager_name,
         "manager_email": "sales@hite-pro.ru",
         "manager_phone": "+7 (495) 256-33-00",
         "products": products,
