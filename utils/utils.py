@@ -102,6 +102,14 @@ def get_items_to_kp(
 ) -> list[dict[str, int | float | str]]:
     items: list[dict[str, int | float | str]] = []
     elements = (response or {}).get('_embedded', {}).get('elements', [])
+    try:
+        discount_percent = float(discount)
+    except (TypeError, ValueError):
+        logger.warning(f'Некорректное значение скидки: {discount}. Используется 0%.')
+        discount_percent = 0.0
+
+    if discount_percent < 0:
+        discount_percent = 0.0
 
     for element in elements:
         name = element.get('name')
@@ -141,13 +149,20 @@ def get_items_to_kp(
         except (TypeError, ValueError):
             quantity = 0
 
+        discount_per_unit_value = float(price) * discount_percent / 100 if discount_percent else 0
+        discount_per_unit = (
+            int(discount_per_unit_value)
+            if float(discount_per_unit_value).is_integer()
+            else discount_per_unit_value
+        )
+
         total_value = float(price) * float(quantity) if quantity else 0
         total = int(total_value) if float(total_value).is_integer() else total_value
 
         items.append({
             'name': name,
             'price': price,
-            'discount': discount,
+            'discount': discount_per_unit,
             'quantity': quantity,
             'total': total,
         })
