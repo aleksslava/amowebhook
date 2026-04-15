@@ -3,7 +3,6 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from json import JSONDecodeError
 from typing import Any, Optional
 
 import dotenv
@@ -746,11 +745,20 @@ class AmoCRMWrapperAsync:
     async def get_responsible_user_by_id(self, manager_id: int):
         url = f'/api/v4/users/{manager_id}'
 
-        responsible_manager = self._base_request(endpoint=url, type='get')
+        responsible_manager = await self._base_request(endpoint=url, type='get')
         if responsible_manager.status_code == 200:
             return responsible_manager.json()
-        else:
-            raise JSONDecodeError
+
+        logger.error(
+            "Не удалось получить ответственного менеджера: status_code=%s, manager_id=%s, body=%s",
+            responsible_manager.status_code,
+            manager_id,
+            responsible_manager.text,
+        )
+        raise RuntimeError(
+            f"Failed to fetch responsible manager {manager_id}: "
+            f"status_code={responsible_manager.status_code}"
+        )
 
 
 # ====== пример запуска ======
