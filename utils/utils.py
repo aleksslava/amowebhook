@@ -98,6 +98,7 @@ def get_catalog_elements_from_lead(response: dict) -> dict[int, int | float]:
 def get_items_to_kp(
         response: dict,
         catalog_elements: dict[int, int | float],
+        discount: int
 ) -> list[dict[str, int | float | str]]:
     items: list[dict[str, int | float | str]] = []
     elements = (response or {}).get('_embedded', {}).get('elements', [])
@@ -146,7 +147,7 @@ def get_items_to_kp(
         items.append({
             'name': name,
             'price': price,
-            'discount': 0,
+            'discount': discount,
             'quantity': quantity,
             'total': total,
         })

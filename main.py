@@ -599,9 +599,11 @@ def _cleanup_generated_file(file_path: str | Path) -> None:
 @app.get("/kp")
 async def get_kp(request: Request, lead_id: int):
     project_field_id = 938609
+    discount_field_id = 972024
     lead_response = await amo_api.get_lead_with_catalog_elements(lead_id=lead_id)
     lead_catalog_elements = get_catalog_elements_from_lead(lead_response)
     project = amo_api._get_custom_field_value(lead_response, project_field_id)
+    discount = int(amo_api._get_custom_field_value(lead_response, discount_field_id))
     responsible_manager_id = lead_response.get("responsible_user_id")
     responsible_manager = await amo_api.get_responsible_user_by_id(responsible_manager_id)
     responsible_manager_name = responsible_manager.get('name')
@@ -626,7 +628,7 @@ async def get_kp(request: Request, lead_id: int):
         catalog_id=catalog_id,
         elements=lead_catalog_elements,
     )
-    products = get_items_to_kp(catalogs_elements_response, lead_catalog_elements)
+    products = get_items_to_kp(catalogs_elements_response, lead_catalog_elements, discount=discount)
 
     total_amount_value = 0.0
     for product in products:
