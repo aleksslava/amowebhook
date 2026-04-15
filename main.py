@@ -43,7 +43,7 @@ bot = Bot(token=config.tg_bot.token)
 app = FastAPI()
 templates = Jinja2Templates(directory="services/templates")
 KP_IMAGE_PATH = Path("services/templates/img01.png")
-KP_TEMPLATE_PATH = Path("services/templates/test.html")
+KP_TEMPLATE_PATH = Path("services/templates/hite_pro_kp.html")
 KP_PDF_TMP_DIR = Path("services/tmp_pdf")
 
 db_connect_args = {"check_same_thread": False} if config.database_url.startswith("sqlite") else {}
@@ -598,8 +598,11 @@ def _cleanup_generated_file(file_path: str | Path) -> None:
 
 @app.get("/kp")
 async def get_kp(request: Request, lead_id: int):
+    project_field_id = 938609
     lead_response = await amo_api.get_lead_with_catalog_elements(lead_id=lead_id)
     lead_catalog_elements = get_catalog_elements_from_lead(lead_response)
+    project = amo_api._get_custom_field_value(lead_response, project_field_id)
+
 
     if not lead_catalog_elements:
         raise HTTPException(status_code=404, detail="В сделке нет элементов каталога")
@@ -633,7 +636,7 @@ async def get_kp(request: Request, lead_id: int):
 
     today = datetime.date.today()
     proposal_date = today.strftime("%d.%m.%Y")
-    valid_until = (today + datetime.timedelta(days=3)).strftime("%d.%m.%Y")
+    valid_until = (today + datetime.timedelta(days=14)).strftime("%d.%m.%Y")
     context = {
         "request": request,
         "proposal_number": lead_id,
@@ -647,8 +650,9 @@ async def get_kp(request: Request, lead_id: int):
         "products": products,
         "total_amount": total_amount,
         'lead_id': lead_id,
+        'project': project,
     }
-    return templates.TemplateResponse("test.html", context)
+    return templates.TemplateResponse("hite_pro_kp.html", context)
 
 
 @app.get("/kp/pdf")
