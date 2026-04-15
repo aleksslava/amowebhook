@@ -673,7 +673,7 @@ async def get_kp_pdf(request: Request, lead_id: int) -> FileResponse:
     return FileResponse(
         path=pdf_output_path,
         media_type="application/pdf",
-        filename=f"kp-{lead_id}.pdf",
+        filename=f"КП HiTE PRO №{lead_id} от {datetime.date.today():%d.%m.%Y}.pdf",
         content_disposition_type="inline",
         background=BackgroundTask(_cleanup_generated_file, pdf_output_path),
     )
