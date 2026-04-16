@@ -17,6 +17,9 @@
             --hp-soft: #f4f8ff;
             --hp-black: #141414;
             --hp-white: #ffffff;
+            --content-pad-top: 30px;
+            --content-pad-x: 34px;
+            --content-pad-bottom: 34px;
         }
 
         * { box-sizing: border-box; }
@@ -46,6 +49,8 @@
             display: flex;
             align-items: stretch;
             min-height: 100px;
+            width: calc(100% - (var(--content-pad-x) * 2));
+            margin: 0 auto;
         }
 
         .topbar::after {
@@ -120,7 +125,7 @@
 
         /* ── КОНТЕНТ ── */
         .content {
-            padding: 30px 34px 34px;
+            padding: var(--content-pad-top) var(--content-pad-x) var(--content-pad-bottom);
         }
 
         .section-title {
@@ -130,6 +135,14 @@
             letter-spacing: 0.12em;
             text-transform: uppercase;
             color: var(--hp-blue);
+        }
+
+        .proposal-title {
+            margin: 0 0 20px;
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 1.25;
+            color: var(--hp-black);
         }
 
         /* ── ТАБЛИЦА ── */
@@ -258,6 +271,12 @@
         }
 
         @media print {
+            :root {
+                --content-pad-top: 7.5mm;
+                --content-pad-x: 9mm;
+                --content-pad-bottom: 0;
+            }
+
             *, *::before, *::after {
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
@@ -301,7 +320,7 @@
             .meta-block-manager { min-width: 110pt; }
             .meta-block-manager > .meta-value:first-of-type { font-size: 7.8pt; }
 
-            .content { padding: 7.5mm 9mm 0; }
+            .proposal-title { font-size: 13pt; margin: 0 0 4mm; }
 
             .products { font-size: 9pt; }
             .products thead th { font-size: 8pt; padding: 2.5mm 2.5mm; }
@@ -354,6 +373,7 @@
     </header>
 
     <section class="content">
+        <h1 class="proposal-title">Коммерческое предложение № {{ lead_id }} от {{ proposal_date }}</h1>
 
         {# ── ТАБЛИЦА ТОВАРОВ ── #}
         {% set ns = namespace(show_discount=false) %}
