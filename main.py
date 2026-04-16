@@ -644,7 +644,7 @@ async def get_kp(request: Request, lead_id: int):
     proposal_date = today.strftime("%d.%m.%Y")
     valid_until = (today + datetime.timedelta(days=14)).strftime("%d.%m.%Y")
 
-    image_names = ["slide_1.png", "slide_2.jpg"]  # имена файлов из папки services/templates
+    image_names = ["slide_2.jpg"]  # имена файлов из папки services/templates
     content_blocks = [
         {
             "type": "image",
