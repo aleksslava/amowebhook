@@ -45,6 +45,7 @@ templates = Jinja2Templates(directory="services/templates")
 KP_IMAGE_PATH = Path("services/templates/img01.png")
 KP_TEMPLATE_PATH = Path("services/templates/hite_pro_kp.html")
 KP_PDF_TMP_DIR = Path("services/tmp_pdf")
+template_dir = KP_TEMPLATE_PATH.resolve().parent
 
 db_connect_args = {"check_same_thread": False} if config.database_url.startswith("sqlite") else {}
 db_engine = create_engine(config.database_url, connect_args=db_connect_args)
@@ -642,6 +643,18 @@ async def get_kp(request: Request, lead_id: int):
     today = datetime.date.today()
     proposal_date = today.strftime("%d.%m.%Y")
     valid_until = (today + datetime.timedelta(days=14)).strftime("%d.%m.%Y")
+
+    image_names = ["slide_1.jpg", "slide_2.jpg"]  # имена файлов из папки services/templates
+    content_blocks = [
+        {
+            "type": "image",
+            "src": (template_dir / name).resolve().as_uri(),
+            "alt": Path(name).stem,
+        }
+        for name in image_names
+        if (template_dir / name).exists()
+    ]
+
     context = {
         "request": request,
         "proposal_number": lead_id,
@@ -656,6 +669,7 @@ async def get_kp(request: Request, lead_id: int):
         "total_amount": total_amount,
         'lead_id': lead_id,
         'project': project,
+        "content_blocks": content_blocks,
     }
     return templates.TemplateResponse("hite_pro_kp.html", context)
 
