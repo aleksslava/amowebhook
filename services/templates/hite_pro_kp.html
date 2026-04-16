@@ -419,6 +419,17 @@
             </tfoot>
         </table>
 
+        {# ── ПОДВАЛ ── #}
+        <div class="footer">
+            <div class="note">
+                Условия поставки, сроки и дополнительные работы согласуются отдельно и фиксируются при оплате заказа.
+            </div>
+            <div class="sign">
+                С уважением,
+                <strong>{{ manager_name | default("Отдел продаж HiTE PRO") }}</strong>
+            </div>
+        </div>
+
         {# ── КОНТЕНТНАЯ ЗОНА (картинки/тексты для акций, новинок и т.д.) ── #}
         {% if content_blocks %}
         <div class="content-zone">
@@ -434,16 +445,7 @@
         </div>
         {% endif %}
 
-        {# ── ПОДВАЛ ── #}
-        <div class="footer">
-            <div class="note">
-                Условия поставки, сроки и дополнительные работы согласуются отдельно и фиксируются при оплате заказа.
-            </div>
-            <div class="sign">
-                С уважением,
-                <strong>{{ manager_name | default("Отдел продаж HiTE PRO") }}</strong>
-            </div>
-        </div>
+
 
     </section>
 </main>
