@@ -17,9 +17,6 @@
             --hp-soft: #f4f8ff;
             --hp-black: #141414;
             --hp-white: #ffffff;
-            --content-pad-top: 30px;
-            --content-pad-x: 34px;
-            --content-pad-bottom: 34px;
         }
 
         * { box-sizing: border-box; }
@@ -49,8 +46,6 @@
             display: flex;
             align-items: stretch;
             min-height: 100px;
-            width: calc(100% - (var(--content-pad-x) * 2));
-            margin: 0 auto;
         }
 
         .topbar::after {
@@ -125,7 +120,7 @@
 
         /* ── КОНТЕНТ ── */
         .content {
-            padding: var(--content-pad-top) var(--content-pad-x) var(--content-pad-bottom);
+            padding: 30px 34px 34px;
         }
 
         .section-title {
@@ -137,22 +132,14 @@
             color: var(--hp-blue);
         }
 
-        .proposal-title {
-            margin: 0 0 20px;
-            font-size: 24px;
-            font-weight: 700;
-            line-height: 1.25;
-            color: var(--hp-black);
-        }
-
         /* ── ТАБЛИЦА ── */
         .products {
-            width: 100%;
+            width: calc(100% + 68px);
             border-collapse: separate;
             border-spacing: 0;
             overflow: hidden;
             border: 1px solid var(--hp-line);
-            margin-bottom: 28px;
+            margin: 0 -34px 28px;
         }
 
         .products thead th {
@@ -271,12 +258,6 @@
         }
 
         @media print {
-            :root {
-                --content-pad-top: 7.5mm;
-                --content-pad-x: 9mm;
-                --content-pad-bottom: 0;
-            }
-
             *, *::before, *::after {
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
@@ -320,9 +301,13 @@
             .meta-block-manager { min-width: 110pt; }
             .meta-block-manager > .meta-value:first-of-type { font-size: 7.8pt; }
 
-            .proposal-title { font-size: 13pt; margin: 0 0 4mm; }
+            .content { padding: 7.5mm 9mm 0; }
 
-            .products { font-size: 9pt; }
+            .products {
+                font-size: 9pt;
+                width: calc(100% + 18mm);
+                margin: 0 -9mm 28px;
+            }
             .products thead th { font-size: 8pt; padding: 2.5mm 2.5mm; }
             .products tbody td { padding: 2.3mm 2.5mm; font-size: 9pt; }
             .products tfoot td { padding: 2.8mm 2.5mm; font-size: 10pt; }
@@ -373,7 +358,6 @@
     </header>
 
     <section class="content">
-        <h1 class="proposal-title">Коммерческое предложение № {{ lead_id }} от {{ proposal_date }}</h1>
 
         {# ── ТАБЛИЦА ТОВАРОВ ── #}
         {% set ns = namespace(show_discount=false) %}
