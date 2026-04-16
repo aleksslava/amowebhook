@@ -132,6 +132,14 @@
             color: var(--hp-blue);
         }
 
+        .proposal-title {
+            margin: 0 0 20px;
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 1.25;
+            color: var(--hp-black);
+        }
+
         /* ── ТАБЛИЦА ── */
         .products {
             width: calc(100% + 68px);
@@ -302,6 +310,7 @@
             .meta-block-manager > .meta-value:first-of-type { font-size: 7.8pt; }
 
             .content { padding: 7.5mm 9mm 0; }
+            .proposal-title { font-size: 13pt; margin: 0 0 4mm; }
 
             .products {
                 font-size: 9pt;
@@ -358,6 +367,7 @@
     </header>
 
     <section class="content">
+        <h1 class="proposal-title">Коммерческое предложение № {{ lead_id }} от {{ proposal_date }}</h1>
 
         {# ── ТАБЛИЦА ТОВАРОВ ── #}
         {% set ns = namespace(show_discount=false) %}
