@@ -230,7 +230,7 @@
         .totals-value {
             color: var(--hp-blue-dark);
             font-size: 16px;
-            white-space: nowrap;
+            white-space: normal;
         }
 
         .totals-old {
@@ -239,11 +239,15 @@
             font-weight: 600;
             text-decoration: line-through;
             margin-right: 10px;
+            display: inline-block;
+            white-space: nowrap;
         }
 
         .totals-current {
             color: var(--hp-blue-dark);
             font-size: 16px;
+            display: inline-block;
+            white-space: nowrap;
         }
 
         /* ── КОНТЕНТНАЯ ЗОНА ── */
@@ -450,8 +454,8 @@
             </tbody>
             <tfoot>
             <tr>
-                <td colspan="{{ 5 if total_discount != total_amount else 4 }}" class="align-right totals-label">Итого</td>
-                <td class="align-right totals-value">
+                <td colspan="{{ 4 if ns.show_discount else 3 }}" class="align-right totals-label">Итого</td>
+                <td colspan="2" class="align-right totals-value">
 
                     {% if total_discount != total_amount %}
                     <span class="totals-old">{{ total_amount | grouped_number }} ₽</span>
