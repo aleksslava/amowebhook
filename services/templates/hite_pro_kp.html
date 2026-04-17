@@ -144,6 +144,7 @@
         /* ── ТАБЛИЦА ── */
         .products {
             width: 100%;
+            table-layout: fixed;
             border-collapse: separate;
             border-spacing: 0;
             overflow: hidden;
@@ -165,6 +166,34 @@
         .products th.align-right,
         .products td.align-right {
             text-align: right;
+        }
+
+        .products th.col-price,
+        .products td.col-price {
+            width: 112px;
+            white-space: nowrap;
+        }
+
+        .products th.col-discount,
+        .products td.col-discount {
+            width: 96px;
+            white-space: nowrap;
+        }
+
+        .products th.col-qty,
+        .products td.col-qty {
+            width: 84px;
+            white-space: nowrap;
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        .products th.col-total,
+        .products td.col-total {
+            width: 98px;
+            white-space: nowrap;
+            padding-left: 8px;
+            padding-right: 8px;
         }
 
         .products tbody tr:nth-child(even) {
@@ -393,12 +422,12 @@
             <tr>
                 <th style="width: 44px;">№</th>
                 <th>Наименование</th>
-                <th class="align-right" style="width: 120px;">Цена</th>
+                <th class="align-right col-price">Цена</th>
                 {% if ns.show_discount %}
-                <th class="align-right" style="width: 110px;">Скидка</th>
+                <th class="align-right col-discount">Скидка</th>
                 {% endif %}
-                <th class="align-right" style="width: 110px;">Количество</th>
-                <th class="align-right" style="width: 110px;">Сумма</th>
+                <th class="align-right col-qty">Количество</th>
+                <th class="align-right col-total">Сумма</th>
             </tr>
             </thead>
             <tbody>
@@ -406,12 +435,12 @@
                 <tr>
                     <td>{{ loop.index }}</td>
                     <td>{{ item.name }}</td>
-                    <td class="align-right">{{ item.price | grouped_number }} ₽</td>
+                    <td class="align-right col-price">{{ item.price | grouped_number }} ₽</td>
                     {% if ns.show_discount %}
-                    <td class="align-right">{{ item.discount }} ₽</td>
+                    <td class="align-right col-discount">{{ item.discount }} ₽</td>
                     {% endif %}
-                    <td class="align-right">{{ item.quantity }} шт.</td>
-                    <td class="align-right">{{ item.total_discount | grouped_number }} ₽</td>
+                    <td class="align-right col-qty">{{ item.quantity }} шт.</td>
+                    <td class="align-right col-total">{{ item.total_discount | grouped_number }} ₽</td>
                 </tr>
             {% else %}
                 <tr>
