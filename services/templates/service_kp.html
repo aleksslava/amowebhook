@@ -1,0 +1,357 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Калькулятор КП HiTE PRO · фикс монтаж карнизов v2</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; font-family: 'Inter', sans-serif; }
+        body { background: #686868; padding: 24px 20px; color: #525252; }
+        .container { max-width: 1300px; margin: 0 auto; background: #b6b6b6; border-radius: 28px; box-shadow: 0 20px 40px -8px rgba(0,0,0,0.5); padding: 28px 32px; border: 1px solid #ffffff; }
+        .logo-area { margin-bottom: 12px; }
+        .logo-text { font-size: 38px; font-weight: 800; color: black; letter-spacing: -0.5px; text-shadow: 0 2px 5px rgba(0,20,40,0.5); }
+        h1 { font-weight: 600; font-size: 28px; margin: 4px 0 6px; color: #000000; }
+        .subhead { color: #000000; margin-bottom: 24px; font-weight: 400; font-size: 16px; border-bottom: 1px solid #ffffff; padding-bottom: 16px; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px 20px; }
+        .form-section { background: #e0e0e0; border-radius: 18px; padding: 18px 22px; border: 1px solid #343434; box-shadow: inset 0 1px 3px #white; }
+        .form-section.full-width { grid-column: span 2; }
+        .section-title { font-weight: 600; font-size: 18px; margin-bottom: 14px; color: #000000; display: flex; align-items: center; gap: 8px; border-left: 4px solid #3f8cff; padding-left: 14px; }
+        .field-group { margin-bottom: 14px; }
+        label { display: block; font-weight: 500; font-size: 14px; margin-bottom: 6px; color: #000000; }
+        .radio-group, .checkbox-group { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; }
+        .radio-group label, .checkbox-group label { display: flex; align-items: center; gap: 6px; font-weight: 400; margin-bottom: 0; cursor: pointer; color: #000000; }
+        input, select { padding: 10px 14px; border: 1.5px solid #e0e0e0; border-radius: 14px; font-size: 15px; width: 100%; max-width: 260px; background: #ffffff; color: #000000; transition: 0.2s; }
+        input:focus, select:focus { border-color: #3f8cff; outline: none; box-shadow: 0 0 0 3px rgba(63,140,255,0.2); background: #ffffff; }
+        input::placeholder { color: #8aa1c0; }
+        .btn-group { display: flex; gap: 16px; justify-content: flex-end; margin-top: 30px; }
+        .btn { border: none; padding: 14px 30px; border-radius: 60px; font-weight: 600; font-size: 16px; cursor: pointer; transition: all 0.2s; background: #1f3d5e; color: #000000; border: 1px solid #3f6b9c; }
+        .btn-primary { background: #2a7de1; color: #000000; border: none; box-shadow: 0 6px 14px #0f2b4a; }
+        .btn-primary:hover { background: #1a62c0; transform: scale(1.01); }
+        .note { background: #0f2740; border-radius: 14px; padding: 10px 16px; color: #b8d4ff; font-size: 13px; margin-top: 14px; border-left: 3px solid #3f8cff; }
+        .company-row { display: flex; align-items: center; gap: 18px; margin-bottom: 20px; flex-wrap: wrap; }
+        .error-message { color: #ff8a8a; font-size: 13px; margin-top: 4px; }
+        input.invalid { border-color: #ff6b6b; }
+        .inline-check { display: flex; align-items: center; gap: 8px; }
+        .compact-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+        hr { display: none; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="logo-area"><div class="logo-text">HiTE PRO</div></div>
+    <h1>🏠 Конструктор коммерческого предложения</h1>
+    <div class="subhead">Заполните параметры — нажмите «Скачать PDF» для получения КП</div>
+
+    <form id="kpForm">
+        <div class="company-row">
+            <div class="inline-check">
+                <label><strong>Номер КП (8 цифр)*</strong></label>
+                <input type="text" id="kpNumber" placeholder="12345678" maxlength="8" pattern="\d{8}" required style="width: 150px;">
+            </div>
+            <span id="kpNumberError" class="error-message"></span>
+            <div class="inline-check" style="margin-left: 10px;">
+                <label><input type="checkbox" id="needProject"> Нужен проект умного дома</label>
+                <span style="color:#000000; font-size:14px;">(от 60 000 ₽)</span>
+            </div>
+        </div>
+
+        <div class="form-grid">
+            <div class="form-section">
+                <div class="section-title">📋 Этап / дизайн</div>
+                <div class="field-group">
+                    <label>Ремонт</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="stage" value="wired"> Проводка разведена</label>
+                        <label><input type="radio" name="stage" value="not_wired"> Готовится к разводке</label>
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label>Дизайн-проект</label>
+                    <select id="designProject">
+                        <option value="">— не выбрано —</option>
+                        <option value="exists">Есть</option><option value="in_progress">В процессе</option>
+                        <option value="planned">Планируется</option><option value="not_planned">Не планируется</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-section">
+                <div class="section-title">🚗 Выезд</div>
+                <div class="field-group"><label><input type="checkbox" id="needVisit"> Нужен выезд на осмотр</label></div>
+                <div id="visitDetails" style="display: none;">
+                    <div class="compact-row">
+                        <div class="field-group" style="flex:1;"><label>Площадь (м²)</label><input type="number" id="area" min="1" placeholder="60" style="width:100px;"></div>
+                        <div class="field-group" style="flex:2;"><label>Зона</label><select id="visitZone"><option value="mkad">МКАД — 3450 ₽</option><option value="ckad">ЦКАД — 6900 ₽</option></select></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- СВЕТ с галочкой -->
+            <div class="form-section full-width">
+                <div class="section-title">💡 Управление светом</div>
+                <div class="field-group">
+                    <label><input type="checkbox" id="hasLighting"> Включить управление светом</label>
+                </div>
+                <div id="lightingDetails" style="display: none;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="field-group"><label>Групп света</label><input type="number" id="lightGroups" min="0" placeholder="например 12"></div>
+                        <div class="field-group" id="wiringOptionBlock" style="display: none;">
+                            <label>Тип выключателей</label>
+                            <select id="wiringOption">
+                                <option value="LE">LE</option><option value="Base">Base</option><option value="SN">SN-R</option>
+                                <option value="UNI">UNI + обычные</option><option value="wired">Проводные + Relay-8DI</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="margin-top:6px;"><label><input type="checkbox" id="hasPassThrough"> Проходные/перекрёстные</label></div>
+                    <div id="switchSummary" class="note">📊 Расчёт выключателей будет выполнен при создании PDF</div>
+                </div>
+            </div>
+
+            <div class="form-section"><div class="section-title">🪟 Карнизы</div><div class="field-group"><label><input type="checkbox" id="hasCornices"> Есть</label></div><div id="corniceDetails" style="display:none;"><label>Кол-во</label><input type="number" id="corniceCount" min="1" placeholder="1" style="width:100px;"></div></div>
+            <div class="form-section"><div class="section-title">💧 Протечки</div><div class="field-group"><label><input type="checkbox" id="hasLeakProtection"> Включить</label></div><div id="leakDetails" style="display:none;"><div class="compact-row"><div><label>Стояков</label><input type="number" id="risers" min="1" placeholder="1" style="width:90px;"></div><div><label>Мокрых зон</label><input type="number" id="wetZones" min="1" placeholder="2" style="width:90px;"></div></div></div></div>
+            <div class="form-section"><div class="section-title">🌡️ Отопление</div><div class="field-group"><label><input type="checkbox" id="hasHeating"> Включить</label></div><div id="heatingDetails" style="display:none;"><label>Климатических зон</label><input type="number" id="climateZones" min="1" placeholder="2" style="width:120px;"></div></div>
+            <div class="form-section"><div class="section-title">🔥 Тёплые полы</div><div class="field-group"><label><input type="checkbox" id="hasWarmFloor"> Включить</label></div><div id="warmFloorDetails" style="display:none;"><label>Кол-во</label><input type="number" id="warmFloorCount" min="1" placeholder="1" style="width:100px;"></div></div>
+            <div class="form-section"><div class="section-title">🔐 Замок</div><div class="field-group"><label><input type="checkbox" id="hasSmartLock"> Нужен</label></div><div id="lockDetails" style="display:none;"><div class="compact-row"><div><label>Модель</label><select id="lockModel"><option value="sl300">SL300 (25k)</option><option value="sl500">SL500 (32k)</option></select></div><div><label>Дверь</label><select id="doorComplexity"><option value="standard">Стандарт (12k)</option><option value="complex">Сложная (25k)</option></select></div></div></div></div>
+        </div>
+
+        <div class="btn-group"><button type="button" class="btn btn-primary" id="generatePdfBtn">📄 Скачать PDF (КП)</button></div>
+    </form>
+</div>
+<script>
+    (function(){
+        "use strict";
+        const PRICES = {
+            relayF1: 3480, relayF2: 4980, relayDrive: 3980, relay16A: 3480, relay1Q: 3080,
+            tempSensor: 500, smartAir: 2980, smartWater: 2980, gateway: 9980, uni: 1980,
+            din4relay: 10980, relay8DI: 10980,
+            switchLE1: 1480, switchLE2: 1780,
+            switchBase1: 1880, switchBase2: 2280,
+            switchSN1: 2980, switchSN2: 3380,
+            corniceKit: 26500, servoValtec: 2000, valveProfi: 8990,
+        };
+        const LOCK_PRICES = { sl300: 25000, sl500: 38800 };
+        const MONTAGE_RATE = 0.60;
+        const CORNICE_MOUNT_PRICE = 12500;
+
+        const stageRadios = document.getElementsByName('stage');
+        const needVisitCheck = document.getElementById('needVisit');
+        const visitDetails = document.getElementById('visitDetails');
+        const hasCornices = document.getElementById('hasCornices');
+        const corniceDetails = document.getElementById('corniceDetails');
+        const hasLeak = document.getElementById('hasLeakProtection');
+        const leakDetails = document.getElementById('leakDetails');
+        const hasHeating = document.getElementById('hasHeating');
+        const heatingDetails = document.getElementById('heatingDetails');
+        const hasWarmFloor = document.getElementById('hasWarmFloor');
+        const warmFloorDetails = document.getElementById('warmFloorDetails');
+        const hasSmartLock = document.getElementById('hasSmartLock');
+        const lockDetails = document.getElementById('lockDetails');
+        const hasLightingCheck = document.getElementById('hasLighting');
+        const lightingDetails = document.getElementById('lightingDetails');
+        const lightGroupsInput = document.getElementById('lightGroups');
+        const hasPassThrough = document.getElementById('hasPassThrough');
+        const kpNumberInput = document.getElementById('kpNumber');
+        const kpNumberError = document.getElementById('kpNumberError');
+        const wiringOptionBlock = document.getElementById('wiringOptionBlock');
+        const needProjectCheck = document.getElementById('needProject');
+
+        function validateKpNumber() {
+            const val = kpNumberInput.value.trim();
+            const isValid = /^\d{8}$/.test(val);
+            if (!val) { kpNumberError.textContent = 'Номер обязателен'; kpNumberInput.classList.add('invalid'); return false; }
+            if (!isValid) { kpNumberError.textContent = 'Ровно 8 цифр'; kpNumberInput.classList.add('invalid'); return false; }
+            kpNumberError.textContent = ''; kpNumberInput.classList.remove('invalid'); return true;
+        }
+        kpNumberInput.addEventListener('input', validateKpNumber);
+
+        function toggleVisit() { visitDetails.style.display = needVisitCheck.checked ? 'block' : 'none'; }
+        function toggleCornice() { corniceDetails.style.display = hasCornices.checked ? 'block' : 'none'; }
+        function toggleLeak() { leakDetails.style.display = hasLeak.checked ? 'block' : 'none'; }
+        function toggleHeating() { heatingDetails.style.display = hasHeating.checked ? 'block' : 'none'; }
+        function toggleWarmFloor() { warmFloorDetails.style.display = hasWarmFloor.checked ? 'block' : 'none'; }
+        function toggleLock() { lockDetails.style.display = hasSmartLock.checked ? 'block' : 'none'; }
+        function toggleLighting() { lightingDetails.style.display = hasLightingCheck.checked ? 'block' : 'none'; toggleWiringOption(); }
+        function toggleWiringOption() { wiringOptionBlock.style.display = (!isWiredStage() && hasLightingCheck.checked) ? 'block' : 'none'; }
+
+        needVisitCheck.addEventListener('change', toggleVisit); hasCornices.addEventListener('change', toggleCornice);
+        hasLeak.addEventListener('change', toggleLeak); hasHeating.addEventListener('change', toggleHeating);
+        hasWarmFloor.addEventListener('change', toggleWarmFloor); hasSmartLock.addEventListener('change', toggleLock);
+        hasLightingCheck.addEventListener('change', toggleLighting);
+        Array.from(stageRadios).forEach(r => r.addEventListener('change', toggleWiringOption));
+
+        function isWiredStage() { for (let r of stageRadios) if (r.checked) return r.value === 'wired'; return false; }
+
+        function calculateSwitches() {
+            if (!hasLightingCheck.checked) return { single: 0, double: 0, uni: 0 };
+            const groups = parseInt(lightGroupsInput.value) || 0;
+            if (groups === 0) return { single: 0, double: 0, uni: 0 };
+            let single = Math.round(groups * 0.7);
+            let double = groups - single;
+            let passMult = hasPassThrough.checked ? 1.15 : 1.0;
+            single = Math.ceil(single * passMult);
+            double = Math.ceil(double * passMult);
+            let uni = (isWiredStage() && hasPassThrough.checked) ? Math.ceil((single+double)*0.1) : 0;
+            return { single, double, uni };
+        }
+
+        function getSwitchPrices(type) {
+            if (type === 'LE') return { one: PRICES.switchLE1, two: PRICES.switchLE2, name: 'LE' };
+            if (type === 'Base') return { one: PRICES.switchBase1, two: PRICES.switchBase2, name: 'Base' };
+            if (type === 'SN') return { one: PRICES.switchSN1, two: PRICES.switchSN2, name: 'SN-R' };
+            return null;
+        }
+
+        function generatePDF(){
+            if(!validateKpNumber()){ alert('Исправьте номер КП (8 цифр)'); return; }
+            const wired = isWiredStage();
+            const lightingEnabled = hasLightingCheck.checked;
+            const sw = calculateSwitches();
+            const groups = lightingEnabled ? (parseInt(lightGroupsInput.value)||0) : 0;
+            
+            let sections = {
+                light: { title:'1. Умный свет и сервер', items:[], totalEquip:0, installCost:0, desc: lightingEnabled ? `${groups} групп` : '' },
+                leak: { title:'2. Защита от протечек', items:[], totalEquip:0, installCost:0, desc:'' },
+                climate: { title:'3. Умный климат', items:[], totalEquip:0, installCost:0, desc:'' },
+                curtains: { title:'4. Умные шторы', items:[], totalEquip:0, installCost:0, desc:'' },
+                access: { title:'5. Умный доступ', items:[], totalEquip:0, installCost:0, desc:'' },
+            };
+            sections.light.items.push({name:'Сервер Gateway', qty:1, price:PRICES.gateway});
+
+            if (lightingEnabled && groups > 0) {
+                if (wired) {
+                    if (sw.single) sections.light.items.push({name:'Relay-F1', qty:sw.single, price:PRICES.relayF1});
+                    if (sw.double) sections.light.items.push({name:'Relay-F2', qty:sw.double, price:PRICES.relayF2});
+                    if (sw.uni) sections.light.items.push({name:'Радиомодуль UNI', qty:sw.uni, price:PRICES.uni});
+                } else {
+                    const option = document.getElementById('wiringOption').value;
+                    const din = Math.ceil(groups/4);
+                    sections.light.items.push({name:'DIN-4.Relay', qty:din, price:PRICES.din4relay});
+                    if (option === 'UNI') {
+                        const totalUni = sw.single + sw.double;
+                        if (totalUni) sections.light.items.push({name:'Радиомодуль UNI', qty:totalUni, price:PRICES.uni});
+                    } else if (option === 'wired') {
+                        const di = Math.ceil(groups/8);
+                        sections.light.items.push({name:'Relay-8DI', qty:di, price:PRICES.relay8DI});
+                        if (sw.single) sections.light.items.push({name:'Проводной выкл. 1-кл.', qty:sw.single, price:300});
+                        if (sw.double) sections.light.items.push({name:'Проводной выкл. 2-кл.', qty:sw.double, price:500});
+                    } else {
+                        const prices = getSwitchPrices(option);
+                        if (prices) {
+                            if (sw.single) sections.light.items.push({name:`Выкл. ${prices.name}-1`, qty:sw.single, price:prices.one});
+                            if (sw.double) sections.light.items.push({name:`Выкл. ${prices.name}-2`, qty:sw.double, price:prices.two});
+                        }
+                    }
+                }
+            }
+
+            if (hasLeak.checked) {
+                const ris = parseInt(document.getElementById('risers')?.value)||0;
+                const wet = parseInt(document.getElementById('wetZones')?.value)||0;
+                sections.leak.desc = `${wet} мокрых зон`;
+                if (ris) { sections.leak.items.push({name:'Шаровой кран Profi', qty:ris*2, price:PRICES.valveProfi}); sections.leak.items.push({name:'Relay-Drive', qty:ris, price:PRICES.relayDrive}); }
+                if (wet) sections.leak.items.push({name:'Датчик Smart Water', qty:wet, price:PRICES.smartWater});
+            }
+            let climateDesc=[];
+            if (hasHeating.checked) {
+                const zones = parseInt(document.getElementById('climateZones')?.value)||0;
+                if (zones) { climateDesc.push(`${zones} зон`); sections.climate.items.push({name:'Сервопривод Valtec', qty:zones, price:PRICES.servoValtec}); sections.climate.items.push({name:'Relay-1Q', qty:zones, price:PRICES.relay1Q}); sections.climate.items.push({name:'Smart Air', qty:zones, price:PRICES.smartAir}); }
+            }
+            if (hasWarmFloor.checked) {
+                const floors = parseInt(document.getElementById('warmFloorCount')?.value)||0;
+                if (floors) { climateDesc.push(`${floors} теплых полов`); sections.climate.items.push({name:'Relay-16A', qty:floors, price:PRICES.relay16A}); sections.climate.items.push({name:'Датчик температуры пола', qty:floors, price:PRICES.tempSensor}); }
+            }
+            sections.climate.desc = climateDesc.join(' · ');
+            
+            // Карнизы: монтаж фиксированный 12500 за штуку
+            if (hasCornices.checked) {
+                const cnt = parseInt(document.getElementById('corniceCount')?.value)||0;
+                sections.curtains.desc = `${cnt} штор`;
+                if (cnt) { 
+                    sections.curtains.items.push({name:'Карниз Novo N21', qty:cnt, price:PRICES.corniceKit}); 
+                    sections.curtains.items.push({name:'Relay-Drive (для карниза)', qty:cnt, price:PRICES.relayDrive}); 
+                    sections.curtains.installCost = cnt * CORNICE_MOUNT_PRICE; 
+                }
+            }
+
+            if (hasSmartLock.checked) {
+                const model = document.getElementById('lockModel')?.value;
+                const lockPrice = LOCK_PRICES[model] || 25000;
+                sections.access.desc = 'Управление дверью';
+                sections.access.items.push({name:`Замок ${model.toUpperCase()}`, qty:1, price:lockPrice});
+                sections.access.installCost = (document.getElementById('doorComplexity')?.value==='complex'?25000:12000);
+            }
+
+            let visitCost = 0, inspectionCost = 0;
+            if (needVisitCheck.checked) {
+                visitCost = document.getElementById('visitZone')?.value==='mkad'?3450:6900;
+                inspectionCost = Math.max((parseFloat(document.getElementById('area')?.value)||0)*173, 8000);
+            }
+            const projectCost = needProjectCheck.checked ? 60000 : 0;
+
+            // Расчёт монтажа: 60% для всего, кроме позиций в curtains и access (где монтаж уже задан)
+            for (let k in sections) {
+                let eq = 0;
+                sections[k].items.forEach(it => eq += it.price * it.qty);
+                sections[k].totalEquip = eq;
+                
+                if (k === 'curtains' || k === 'access') continue; // монтаж уже установлен вручную
+                
+                let inst = sections[k].installCost || 0;
+                sections[k].items.forEach(it => {
+                    if (!it.name.includes('кран') && !it.name.includes('замок')) {
+                        inst += Math.round(it.price * it.qty * MONTAGE_RATE);
+                    }
+                });
+                sections[k].installCost = inst;
+            }
+
+            let totalEquip = 0, totalInst = 0;
+            for (let k in sections) { 
+                totalEquip += sections[k].totalEquip; 
+                totalInst += sections[k].installCost; 
+            }
+            const grand = totalEquip + totalInst + visitCost + inspectionCost + projectCost;
+
+            const kp = kpNumberInput.value.trim();
+            const content = [];
+            content.push({ text: `Коммерческое предложение HiTE PRO №${kp}`, style:'mainTitle', margin:[0,0,0,6] });
+            content.push({ text: `БЕСПРОВОДНОЙ УМНЫЙ ДОМ`, style:'subTitle', margin:[0,0,0,20] });
+            const descCaps = { light:'• Управление освещением с радио выключателями\n• Мастер-выключатель, сценарии', leak:'• Защита от протечек, уведомления', climate:'• Автоподдержание температуры, управление', curtains:'• Управление шторами по расписанию', access:'• Удалённое открытие двери' };
+            function addSection(sec, key){
+                if(sec.items.length===0 && sec.installCost===0) return;
+                content.push({ text: sec.title, style:'sectionHeader', margin:[0,15,0,6] });
+                if(descCaps[key]){ content.push({ text:'Возможности', style:'subHeader' }); content.push({ text:descCaps[key], style:'descText' }); }
+                if(sec.desc) content.push({ text:`Комплект: ${sec.desc}`, style:'descText', margin:[0,4] });
+                let body = [['Товар','Цена','Кол-во','Сумма']];
+                sec.items.forEach(i=>body.push([i.name, i.price.toLocaleString()+' ₽', i.qty.toString(), (i.price*i.qty).toLocaleString()+' ₽']));
+                body.push(['','','Оборудование', sec.totalEquip.toLocaleString()+' ₽']);
+                if(sec.installCost>0) body.push(['','','Монтаж', sec.installCost.toLocaleString()+' ₽']);
+                content.push({ style:'tableStyle', table:{ headerRows:1, widths:['*','auto','auto','auto'], body }, layout:'lightHorizontalLines' });
+            }
+            addSection(sections.light,'light'); addSection(sections.leak,'leak'); addSection(sections.climate,'climate'); addSection(sections.curtains,'curtains'); addSection(sections.access,'access');
+            let servBody = [['Услуга','Цена','Кол-во','Сумма']];
+            if(visitCost) servBody.push(['Выезд', visitCost.toLocaleString()+' ₽', '1', visitCost.toLocaleString()+' ₽']);
+            if(inspectionCost) servBody.push(['Осмотр', inspectionCost.toLocaleString()+' ₽', '1', inspectionCost.toLocaleString()+' ₽']);
+            if(projectCost) servBody.push(['Проект', projectCost.toLocaleString()+' ₽', '1', projectCost.toLocaleString()+' ₽']);
+            if(servBody.length>1){ content.push({ text:'Доп. услуги', style:'sectionHeader', margin:[0,15,0,6] }); servBody.push(['','','Итого', (visitCost+inspectionCost+projectCost).toLocaleString()+' ₽']); content.push({ style:'tableStyle', table:{ headerRows:1, widths:['*','auto','auto','auto'], body:servBody }, layout:'lightHorizontalLines' }); }
+            content.push({ text:[ `Оборудование: ${totalEquip.toLocaleString()} ₽`, `Монтаж: ${totalInst.toLocaleString()} ₽`, `Услуги: ${(visitCost+inspectionCost+projectCost).toLocaleString()} ₽`, `ОБЩАЯ СТОИМОСТЬ: ${grand.toLocaleString()} ₽` ].join('\n'), style:'totalBlock', margin:[0,25] });
+            content.push({ text:'* Смета предварительная', style:'noteText' }); content.push({ text:`Дата: ${new Date().toLocaleDateString('ru-RU')}`, style:'dateText', margin:[0,15] });
+            content.push({ text:'г. Москва, ул. Берзарина, 36с10 · +7(495)256-33-00 · sales@hite-pro.ru', style:'contactsBlock' });
+            const docDef = { pageMargins:[40,60,40,40], header:()=> ({ margin:[40,20], columns:[{text:'HiTE PRO', style:'logoHeader'},{text:`КП №${kp}`, style:'headerSub', alignment:'right'}] }), content, styles:{ logoHeader:{fontSize:24,bold:true,color:'#0b1e3a'}, headerSub:{fontSize:14,color:'#3a5e8c'}, mainTitle:{fontSize:20,bold:true}, subTitle:{fontSize:14,bold:true}, sectionHeader:{fontSize:16,bold:true,decoration:'underline'}, subHeader:{fontSize:13,bold:true}, descText:{fontSize:11}, tableStyle:{fontSize:10}, totalBlock:{fontSize:13,bold:true,alignment:'right'}, noteText:{fontSize:10,italics:true}, dateText:{fontSize:11}, contactsBlock:{fontSize:10,alignment:'center'} }, defaultStyle:{font:'Roboto'}, background:()=> ({ canvas:[{type:'rect',x:0,y:0,w:595.28,h:841.89,color:'#F5F9FF'}] }) };
+            pdfMake.fonts = { Roboto: { normal:'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf', bold:'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Medium.ttf', italics:'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Italic.ttf' } };
+            pdfMake.createPdf(docDef).download(`KP_${kp}_HiTE_PRO.pdf`);
+        }
+
+        document.getElementById('generatePdfBtn').addEventListener('click', generatePDF);
+        function init(){
+            toggleVisit(); toggleCornice(); toggleLeak(); toggleHeating(); toggleWarmFloor(); toggleLock(); toggleLighting();
+        }
+        init();
+    })();
+</script>
+</body>
+</html>

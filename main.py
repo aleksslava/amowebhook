@@ -713,3 +713,7 @@ async def get_kp_pdf(request: Request, lead_id: int) -> FileResponse:
         content_disposition_type="inline",
         background=BackgroundTask(_cleanup_generated_file, pdf_output_path),
     )
+
+@app.get("/kp/service")
+async def get_service_kp(request: Request):
+    return templates.TemplateResponse("service_kp.html", {"request": request})
