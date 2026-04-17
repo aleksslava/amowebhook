@@ -601,6 +601,7 @@ def _cleanup_generated_file(file_path: str | Path) -> None:
 async def get_kp(request: Request, lead_id: int):
     project_field_id = 938609
     discount_field_id = 972024
+    delivery_field_id = 972028
     lead_response = await amo_api.get_lead_with_catalog_elements(lead_id=lead_id)
     lead_catalog_elements = get_catalog_elements_from_lead(lead_response)
     project = amo_api._get_custom_field_value(lead_response, project_field_id)
@@ -608,7 +609,7 @@ async def get_kp(request: Request, lead_id: int):
     responsible_manager_id = lead_response.get("responsible_user_id")
     responsible_manager = await amo_api.get_responsible_user_by_id(responsible_manager_id)
     responsible_manager_name = responsible_manager.get('name')
-
+    delivery = int(amo_api._get_custom_field_value(lead_response, delivery_field_id))
 
     if not lead_catalog_elements:
         raise HTTPException(status_code=404, detail="В сделке нет элементов каталога")
@@ -630,6 +631,14 @@ async def get_kp(request: Request, lead_id: int):
         elements=lead_catalog_elements,
     )
     products = get_items_to_kp(catalogs_elements_response, lead_catalog_elements, discount=discount)
+    if delivery > 0:
+        products.append({
+            "name": 'Доставка',
+            'price': delivery,
+            'discount': 0,
+            'quantity': 1,
+            'total': delivery,
+        })
 
     total_amount_value = 0.0
     for product in products:
