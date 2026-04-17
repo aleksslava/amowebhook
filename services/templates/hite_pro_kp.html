@@ -450,7 +450,7 @@
             </tbody>
             <tfoot>
             <tr>
-                <td colspan="{{ 5 if ns.show_discount else 4 }}" class="align-right totals-label">Итого</td>
+                <td colspan="{{ 5 if total_discount != total_amount else 4 }}" class="align-right totals-label">Итого</td>
                 <td class="align-right totals-value">
 
                     {% if total_discount != total_amount %}
