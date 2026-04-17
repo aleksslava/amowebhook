@@ -159,7 +159,7 @@ def get_items_to_kp(
         total_value_discount = (float(price) - float(discount_per_unit_value)) * float(quantity) if quantity else 0
         total_discount = int(total_value_discount) if float(total_value_discount).is_integer() else total_value_discount
         total_value = float(price) * float(quantity) if quantity else 0
-        total = int(total_value_discount) if float(total_value_discount).is_integer() else total_value_discount
+        total = int(total_value) if float(total_value).is_integer() else total_value
 
         items.append({
             'name': name,

@@ -637,6 +637,7 @@ async def get_kp(request: Request, lead_id: int):
             'price': delivery,
             'discount': 0,
             'quantity': 1,
+            'total_discount': delivery,
             'total': delivery,
         })
 
