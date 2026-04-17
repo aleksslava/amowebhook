@@ -201,6 +201,20 @@
         .totals-value {
             color: var(--hp-blue-dark);
             font-size: 16px;
+            white-space: nowrap;
+        }
+
+        .totals-old {
+            color: var(--hp-muted);
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: line-through;
+            margin-right: 10px;
+        }
+
+        .totals-current {
+            color: var(--hp-blue-dark);
+            font-size: 16px;
         }
 
         /* ── КОНТЕНТНАЯ ЗОНА ── */
@@ -397,7 +411,7 @@
                     <td class="align-right">{{ item.discount }} ₽</td>
                     {% endif %}
                     <td class="align-right">{{ item.quantity }} шт.</td>
-                    <td class="align-right">{{ item.total | grouped_number }} ₽</td>
+                    <td class="align-right">{{ item.total_discount | grouped_number }} ₽</td>
                 </tr>
             {% else %}
                 <tr>
@@ -408,7 +422,11 @@
             <tfoot>
             <tr>
                 <td colspan="{{ 5 if ns.show_discount else 4 }}" class="align-right totals-label">Итого</td>
-                <td class="align-right totals-value">{{ total_amount | grouped_number }} ₽</td>
+                <td class="align-right totals-value">
+                    {% set total_discount_value = total_discount if total_discount is not none else total_amount %}
+                    <span class="totals-old">{{ total_amount | grouped_number }} ₽</span>
+                    <span class="totals-current">{{ total_discount_value | grouped_number }} ₽</span>
+                </td>
             </tr>
             </tfoot>
         </table>

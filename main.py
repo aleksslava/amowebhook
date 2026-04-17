@@ -641,14 +641,16 @@ async def get_kp(request: Request, lead_id: int):
         })
 
     total_amount_value = 0.0
+    total_amount_value_discount = 0.0
     for product in products:
         try:
             total_amount_value += float(product.get("total", 0))
+            total_amount_value_discount += float(product.get("total_discount", 0))
         except (TypeError, ValueError):
             continue
 
     total_amount = int(total_amount_value) if total_amount_value.is_integer() else total_amount_value
-
+    total_amount_discount = int(total_amount_value_discount) if total_amount_value_discount.is_integer() else total_amount_value_discount
     today = datetime.date.today()
     proposal_date = today.strftime("%d.%m.%Y")
     valid_until = (today + datetime.timedelta(days=14)).strftime("%d.%m.%Y")
@@ -676,6 +678,7 @@ async def get_kp(request: Request, lead_id: int):
         "manager_phone": "+7 (495) 256-33-00",
         "products": products,
         "total_amount": total_amount,
+        "total_discount": total_amount_discount,
         'lead_id': lead_id,
         'project': project,
         "content_blocks": content_blocks,
