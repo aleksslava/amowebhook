@@ -357,13 +357,7 @@
             <div class="meta-block meta-block-manager">
                 <div class="meta-label">Менеджер</div>
                 <div class="meta-value">{{ manager_name }}</div>
-                {% if project in ["Выклы и УД (Партнеры)", "Крупные заказы"] %}
-                <div class="meta-value meta-contact">partner@hite-pro.ru</div>
-                <div class="meta-value meta-contact">{{ manager_phone }}</div>
-                {% else %}
-                <div class="meta-value meta-contact">sales@hite-pro.ru</div>
-                <div class="meta-value meta-contact">{{ manager_phone }}</div>
-                {% endif %}
+
             </div>
         </div>
     </header>
@@ -427,6 +421,13 @@
             <div class="sign">
                 С уважением,
                 <strong>{{ manager_name | default("Отдел продаж HiTE PRO") }}</strong>
+                {% if project in ["Выклы и УД (Партнеры)", "Крупные заказы"] %}
+                <strong class="meta-value meta-contact">partner@hite-pro.ru</strong>
+                <strong class="meta-value meta-contact">{{ manager_phone }}</strong>
+                {% else %}
+                <strong class="meta-value meta-contact">sales@hite-pro.ru</strong>
+                <strong class="meta-value meta-contact">{{ manager_phone }}</strong>
+                {% endif %}
             </div>
         </div>
 
