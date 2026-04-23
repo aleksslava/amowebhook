@@ -8,8 +8,21 @@ import time
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Mapping
+from urllib.parse import unquote, urlparse
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+
+try:
+    from PIL import Image, ImageOps
+except ImportError:  # pragma: no cover - runtime fallback when Pillow is not installed
+    Image = None
+    ImageOps = None
+
+
+_PDF_IMAGE_MAX_WIDTH = 1400
+_PDF_IMAGE_MAX_HEIGHT = 2000
+_PDF_IMAGE_JPEG_QUALITY = 82
+_SUPPORTED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
 
 
 class _TemplateRequestShim:
@@ -188,6 +201,99 @@ def _format_grouped_number(value: int | float | str | None) -> str:
     return f"{sign}{grouped_integer}"
 
 
+def _resolve_local_image_path(src: str) -> Path | None:
+    parsed = urlparse(src)
+    if parsed.scheme == "file":
+        if parsed.netloc not in ("", "localhost"):
+            return None
+
+        file_path = unquote(parsed.path or "")
+        if os.name == "nt" and file_path.startswith("/") and len(file_path) > 2 and file_path[2] == ":":
+            file_path = file_path[1:]
+        return Path(file_path)
+
+    if parsed.scheme:
+        return None
+    return Path(src)
+
+
+def _optimize_image_for_pdf(source_path: Path, destination_path: Path) -> Path | None:
+    if Image is None or ImageOps is None:
+        return None
+
+    try:
+        with Image.open(source_path) as image:
+            image = ImageOps.exif_transpose(image)
+            if image.mode not in ("RGB", "RGBA"):
+                image = image.convert("RGBA")
+
+            if image.mode == "RGBA":
+                background = Image.new("RGB", image.size, (255, 255, 255))
+                background.paste(image, mask=image.getchannel("A"))
+                image = background
+            else:
+                image = image.convert("RGB")
+
+            resampling = getattr(getattr(Image, "Resampling", Image), "LANCZOS")
+            image.thumbnail((_PDF_IMAGE_MAX_WIDTH, _PDF_IMAGE_MAX_HEIGHT), resampling)
+
+            destination_path.parent.mkdir(parents=True, exist_ok=True)
+            image.save(
+                destination_path,
+                format="JPEG",
+                quality=_PDF_IMAGE_JPEG_QUALITY,
+                optimize=True,
+                progressive=True,
+            )
+            return destination_path
+    except OSError:
+        return None
+
+
+def _optimize_content_block_images(context: Mapping[str, Any], temp_dir: Path) -> dict[str, Any]:
+    render_context = dict(context)
+    content_blocks = render_context.get("content_blocks")
+
+    if not isinstance(content_blocks, list) or not content_blocks:
+        return render_context
+
+    optimized_blocks: list[Any] = []
+    images_dir = temp_dir / "optimized_images"
+
+    for idx, raw_block in enumerate(content_blocks):
+        if not isinstance(raw_block, dict):
+            optimized_blocks.append(raw_block)
+            continue
+
+        block = dict(raw_block)
+        src = block.get("src")
+        if block.get("type") != "image" or not isinstance(src, str):
+            optimized_blocks.append(block)
+            continue
+
+        source_path = _resolve_local_image_path(src)
+        if source_path is None:
+            optimized_blocks.append(block)
+            continue
+
+        source_path = source_path.resolve()
+        if not source_path.exists() or source_path.suffix.lower() not in _SUPPORTED_IMAGE_EXTENSIONS:
+            optimized_blocks.append(block)
+            continue
+
+        optimized_path = _optimize_image_for_pdf(
+            source_path=source_path,
+            destination_path=images_dir / f"content_{idx:03d}.jpg",
+        )
+        if optimized_path is not None:
+            block["src"] = optimized_path.as_uri()
+
+        optimized_blocks.append(block)
+
+    render_context["content_blocks"] = optimized_blocks
+    return render_context
+
+
 def render_template_to_pdf(
     template_path: str | Path,
     context: Mapping[str, Any],
@@ -219,7 +325,6 @@ def render_template_to_pdf(
 
     render_context = dict(context)
     render_context.setdefault("request", _TemplateRequestShim(templates_dir))
-    rendered_html = template.render(**render_context)
 
     if output_pdf_path is None:
         resolved_output_pdf = resolved_template_path.with_suffix(".pdf")
@@ -232,7 +337,11 @@ def render_template_to_pdf(
 
     chromium_bins = _find_chromium_binaries()
     with tempfile.TemporaryDirectory(prefix="kp_pdf_", dir=str(resolved_output_pdf.parent)) as temp_dir:
-        temp_html_path = Path(temp_dir) / "rendered_kp.html"
+        temp_dir_path = Path(temp_dir)
+        render_context = _optimize_content_block_images(render_context, temp_dir_path)
+        rendered_html = template.render(**render_context)
+
+        temp_html_path = temp_dir_path / "rendered_kp.html"
         temp_html_path.write_text(rendered_html, encoding="utf-8")
         last_error: RuntimeError | None = None
         per_binary_errors: list[str] = []
