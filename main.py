@@ -717,3 +717,45 @@ async def get_kp_pdf(request: Request, lead_id: int) -> FileResponse:
 @app.get("/kp/service")
 async def get_service_kp(request: Request):
     return templates.TemplateResponse("service_kp.html", {"request": request})
+
+@app.get("/kp/partner")
+async def get_partner_kp(request: Request) -> FileResponse:
+    raw_context = request.query_params.get("context") or request.query_params.get("contex")
+    if not raw_context:
+        raise HTTPException(status_code=400, detail="context query parameter is required")
+
+    try:
+        context = json.loads(raw_context)
+    except json.JSONDecodeError as error:
+        raise HTTPException(status_code=400, detail="context must be valid JSON") from error
+
+    if not isinstance(context, dict):
+        raise HTTPException(status_code=400, detail="context must be a JSON object")
+
+    context.pop("request", None)
+    lead_id = str(context.get("lead_id") or context.get("proposal_number") or "partner")
+    safe_lead_id = "".join(
+        char if char.isalnum() or char in {"-", "_"} else "_"
+        for char in lead_id
+    ) or "partner"
+
+    KP_PDF_TMP_DIR.mkdir(parents=True, exist_ok=True)
+    pdf_output_path = (KP_PDF_TMP_DIR / f"kp_partner_{safe_lead_id}_{uuid4().hex}.pdf").resolve()
+    try:
+        render_template_to_pdf(
+            template_path=KP_TEMPLATE_PATH,
+            context=context,
+            output_pdf_path=pdf_output_path,
+        )
+    except Exception as error:
+        _cleanup_generated_file(pdf_output_path)
+        logger.exception(f"Failed to generate partner KP PDF: {error}")
+        raise HTTPException(status_code=500, detail="Failed to generate PDF")
+
+    return FileResponse(
+        path=pdf_output_path,
+        media_type="application/pdf",
+        filename=f"КП HiTE PRO №{lead_id} от {datetime.date.today():%d.%m.%Y}.pdf",
+        content_disposition_type="inline",
+        background=BackgroundTask(_cleanup_generated_file, pdf_output_path),
+    )
