@@ -42,8 +42,9 @@ bot = Bot(token=config.tg_bot.token)
 
 app = FastAPI()
 templates = Jinja2Templates(directory="services/templates")
-KP_IMAGE_PATH = Path("services/templates/img01.png")
 KP_TEMPLATE_PATH = Path("services/templates/hite_pro_kp.html")
+KP_IMAGE_PATH = KP_TEMPLATE_PATH.with_name("img01.png")
+KP_LOGO_PATH = KP_TEMPLATE_PATH.with_name("logo.png")
 KP_PDF_TMP_DIR = Path("services/tmp_pdf")
 template_dir = KP_TEMPLATE_PATH.resolve().parent
 
@@ -587,6 +588,13 @@ async def get_kp_image() -> FileResponse:
     if not KP_IMAGE_PATH.exists():
         raise HTTPException(status_code=404, detail="KP image not found")
     return FileResponse(KP_IMAGE_PATH)
+
+
+@app.get("/kp/assets/logo.png", include_in_schema=False, name="kp_logo")
+async def get_kp_logo() -> FileResponse:
+    if not KP_LOGO_PATH.exists():
+        raise HTTPException(status_code=404, detail="KP logo not found")
+    return FileResponse(KP_LOGO_PATH)
 
 
 def _cleanup_generated_file(file_path: str | Path) -> None:

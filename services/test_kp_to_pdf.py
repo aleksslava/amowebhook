@@ -32,10 +32,14 @@ class _TemplateRequestShim:
         self._templates_dir = templates_dir
 
     def url_for(self, route_name: str, **_: Any) -> str:
-        if route_name != "kp_image":
+        template_assets = {
+            "kp_image": "img01.png",
+            "kp_logo": "logo.png",
+        }
+        if route_name not in template_assets:
             raise KeyError(f"Unsupported route name for template rendering: {route_name}")
 
-        image_path = (self._templates_dir / "img01.png").resolve()
+        image_path = (self._templates_dir / template_assets[route_name]).resolve()
         if not image_path.exists():
             raise FileNotFoundError(f"Template image not found: {image_path}")
         return image_path.as_uri()
