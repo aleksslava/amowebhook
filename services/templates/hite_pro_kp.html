@@ -543,6 +543,7 @@
             </div>
         </div>
 
+        {% if total_amount >= 80000 and project == "Выклы и УД (розница)" %}
         <div class="installation-offer">
             <div class="installation-offer-text">
                 <p><strong>Монтаж и настройку оборудования берём на себя!</strong></p>
@@ -561,6 +562,7 @@
                 <img src="{{ request.url_for('kp_montage_image') }}" alt="Монтаж оборудования HiTE PRO">
             </div>
         </div>
+        {% endif %}
 
         {# ── КОНТЕНТНАЯ ЗОНА (картинки/тексты для акций, новинок и т.д.) ── #}
         {% if content_blocks %}
