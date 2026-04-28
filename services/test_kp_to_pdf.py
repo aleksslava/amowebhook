@@ -35,6 +35,7 @@ class _TemplateRequestShim:
         template_assets = {
             "kp_image": "img01.png",
             "kp_logo": "logo.png",
+            "kp_montage_image": "montage_image.webp",
         }
         if route_name not in template_assets:
             raise KeyError(f"Unsupported route name for template rendering: {route_name}")

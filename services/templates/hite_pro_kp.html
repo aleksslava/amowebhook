@@ -307,6 +307,51 @@
             font-size: 13px;
         }
 
+        .installation-offer {
+            margin-top: 24px;
+            display: grid;
+            grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.7fr);
+            align-items: stretch;
+            overflow: hidden;
+            background: rgba(0, 111, 255, 0.10);
+            border: 1px solid rgba(0, 111, 255, 0.18);
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        .installation-offer-text {
+            padding: 22px 24px;
+            font-size: 13px;
+            line-height: 1.55;
+            color: var(--hp-ink);
+        }
+
+        .installation-offer-text p {
+            margin: 0 0 12px;
+        }
+
+        .installation-offer-text p:last-child {
+            margin-bottom: 0;
+        }
+
+        .installation-offer-text strong {
+            color: var(--hp-black);
+            font-weight: 700;
+        }
+
+        .installation-offer-media {
+            display: flex;
+            align-self: stretch;
+            min-height: 100%;
+        }
+
+        .installation-offer-media img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
         /* ── ПЕЧАТЬ ── */
         @page {
             size: A4 portrait;
@@ -337,7 +382,8 @@
 
             .topbar,
             .products,
-            .footer {
+            .footer,
+            .installation-offer {
                 break-inside: avoid;
                 page-break-inside: avoid;
             }
@@ -373,6 +419,17 @@
             .footer { margin-top: 5mm; }
             .note, .sign { font-size: 9pt; }
             .sign strong { font-size: 9.5pt; }
+
+            .installation-offer {
+                margin-top: 5mm;
+                grid-template-columns: minmax(0, 1.28fr) minmax(58mm, 0.72fr);
+            }
+            .installation-offer-text {
+                padding: 5mm;
+                font-size: 8.5pt;
+                line-height: 1.45;
+            }
+            .installation-offer-text p { margin-bottom: 3mm; }
 
             p, h1, h2, h3 { orphans: 3; widows: 3; }
         }
@@ -483,6 +540,25 @@
                 <strong class="meta-value meta-contact">{{ manager_phone }}</strong>
                 <strong class="meta-value meta-contact">Max / Telegram / WhatsApp: +79261911605</strong>
                 {% endif %}
+            </div>
+        </div>
+
+        <div class="installation-offer">
+            <div class="installation-offer-text">
+                <p><strong>Монтаж и настройку оборудования берём на себя!</strong></p>
+                <p>
+                    — Опытные специалисты HiTE PRO — реализовали более 100 объектов<br>
+                    — Монтаж под ключ и без переносов: приедем, установим, настроим — в оговорённые сроки<br>
+                    — Работаем быстро: типовой проект занимает 1–3 рабочих дня<br>
+                    — Гарантия 3 года и поддержка напрямую от HiTE PRO — на связи 7 дней в неделю
+                </p>
+                <p>
+                    <strong>Ориентировочная стоимость для вашего проекта: ~ {{ (total_discount * 0.65) | round(0, 'common') | int | grouped_number }} руб.</strong><br>
+                    Услуга доступна для проектов в Москве и МО. Точную цену и подробности уточняйте у менеджера.
+                </p>
+            </div>
+            <div class="installation-offer-media">
+                <img src="{{ request.url_for('kp_montage_image') }}" alt="Монтаж оборудования HiTE PRO">
             </div>
         </div>
 

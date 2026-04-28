@@ -45,6 +45,7 @@ templates = Jinja2Templates(directory="services/templates")
 KP_TEMPLATE_PATH = Path("services/templates/hite_pro_kp.html")
 KP_IMAGE_PATH = KP_TEMPLATE_PATH.with_name("img01.png")
 KP_LOGO_PATH = KP_TEMPLATE_PATH.with_name("logo.png")
+KP_MONTAGE_IMAGE_PATH = KP_TEMPLATE_PATH.with_name("montage_image.webp")
 KP_PDF_TMP_DIR = Path("services/tmp_pdf")
 template_dir = KP_TEMPLATE_PATH.resolve().parent
 
@@ -595,6 +596,13 @@ async def get_kp_logo() -> FileResponse:
     if not KP_LOGO_PATH.exists():
         raise HTTPException(status_code=404, detail="KP logo not found")
     return FileResponse(KP_LOGO_PATH)
+
+
+@app.get("/kp/assets/montage_image.webp", include_in_schema=False, name="kp_montage_image")
+async def get_kp_montage_image() -> FileResponse:
+    if not KP_MONTAGE_IMAGE_PATH.exists():
+        raise HTTPException(status_code=404, detail="KP montage image not found")
+    return FileResponse(KP_MONTAGE_IMAGE_PATH)
 
 
 def _cleanup_generated_file(file_path: str | Path) -> None:
