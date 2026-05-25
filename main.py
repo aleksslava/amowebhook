@@ -780,4 +780,7 @@ async def get_partner_kp(request: Request) -> FileResponse:
 async def customer_changed(request: Request):
     raw_body = await request.body()
     logger.info(f"Received body: {raw_body}")
+    payload = parse_qs(raw_body.decode("utf-8", errors="replace"), keep_blank_values=True)
+    customer_id = payload.get("customers[update][0][id]", [None])[0]
+    logger.info(f"Customer changed: customer_id={customer_id}")
     return {'status': 'ok'}
