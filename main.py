@@ -775,3 +775,9 @@ async def get_partner_kp(request: Request) -> FileResponse:
         content_disposition_type="inline",
         background=BackgroundTask(_cleanup_generated_file, pdf_output_path),
     )
+
+@app.get("/customer/changed")
+async def customer_changed(request: Request):
+    raw_body = await request.body()
+    logger.info(f"Received body: {raw_body}")
+    return {'status': 'ok'}
