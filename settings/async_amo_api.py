@@ -70,7 +70,7 @@ def build_amo_results_analize_customers(
     logger.info(f'Количество объектов Лид: {len(leads)}')
     logger.info(f'Количество объектов Покупатель: {len(customers)}')
     result: list[AmoResultAnalizeCustomers] = []
-    leads = filter(lambda x: x.project != "Крупные заказы", leads)
+    leads = [lead for lead in leads if lead.project != "Крупные заказы"]
     for customer_obj in customers:
         res = AmoResultAnalizeCustomers(customer_obj=customer_obj, lead_list=[])
         for lead_obj in leads:
