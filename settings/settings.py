@@ -2,6 +2,8 @@ from environs import Env
 from dataclasses import dataclass
 import os
 
+from markdown_it.presets import default
+
 fields_id: dict = {
 
 }
@@ -34,6 +36,7 @@ class Config:
     yandex_api_key: str
     magazne_id: str
     google_sheets_webhook_url: str | None
+    google_sheets_customers_webhook_url: str | None
     google_sheets_token: str | None
     database_url: str
     telegram_bot_url: str
@@ -64,6 +67,7 @@ def load_config(path: str | None = os.path.abspath('./.env')):
         yandex_api_key=env('YANDEX_API'),
         magazne_id=env('MAGAZINE_ID'),
         google_sheets_webhook_url=env('GOOGLE_SHEETS_WEBHOOK_URL', default=None),
+        google_sheets_customers_webhook_url=env('GOOGLE_SHEETS_CUSTOMERS_WEBHOOK_URL', default=None),
         google_sheets_token=env('GOOGLE_SHEETS_TOKEN', default=None),
         database_url=env('DATABASE_URL', default='sqlite:///./amowebhook.db'),
         telegram_bot_url=env('TELEGRAM_BOT_URL', default='https://t.me/your_bot'),

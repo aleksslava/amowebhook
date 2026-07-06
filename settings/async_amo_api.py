@@ -26,7 +26,8 @@ class AmoLead:
     last_buy: int | str | None = None
     time_from_attestate: int | str | None = None
     paid_at: int | None = None
-    project: str | None = None
+    project: str | None | int = None
+
 
     @property
     def price(self) -> int | float | None:
@@ -48,6 +49,7 @@ class AmoCustomers:
     customer_id: int | None
     created_at:int | None
     contacts_id: list[int]
+    status: str | int | None = None
 
 
 @dataclass
@@ -55,6 +57,28 @@ class AmoResult:
     lead_obj: AmoLead
     customer_obj: AmoCustomers
 
+@dataclass
+class AmoResultAnalizeCustomers:
+    lead_list: list[AmoLead,]
+    customer_obj: AmoCustomers
+
+
+def build_amo_results_analize_customers(
+    leads: list[AmoLead],
+    customers: list[AmoCustomers],
+)-> list[AmoResultAnalizeCustomers]:
+    logger.info(f'Количество объектов Лид: {len(leads)}')
+    logger.info(f'Количество объектов Покупатель: {len(customers)}')
+    result: list[AmoResultAnalizeCustomers] = []
+    leads = filter(lambda x: x.project != "Крупные заказы", leads)
+    for customer_obj in customers:
+        res = AmoResultAnalizeCustomers(customer_obj=customer_obj, lead_list=[])
+        for lead_obj in leads:
+            if lead_obj.contact_id in customer_obj.contacts_id:
+                res.lead_list.append(lead_obj)
+        result.append(res)
+
+    return result
 
 
 def build_amo_results(
@@ -457,6 +481,7 @@ class AmoCRMWrapperAsync:
                         customer_id=customer.get("id"),
                         created_at=customer.get("created_at"),
                         contacts_id=self._get_customer_contacts_ids(customer),
+                        status=self._get_customer_custom_field_value(customer, 972634)
                     )
                 )
 
@@ -548,6 +573,19 @@ class AmoCRMWrapperAsync:
                     values = field.get("values", [])
                     if values:
                         return values[0].get("value")
+        return 0
+
+    @staticmethod
+    def _get_customer_custom_field_value(customer_data: dict, field_id: int) -> int | str:
+        custom_fields = customer_data.get("custom_fields_values", [])
+        if custom_fields is not None:
+            for field in custom_fields:
+                if field.get("field_id") == field_id:
+                    values = field.get("values", [])
+                    if values:
+                        value = values[0].get("value")
+                        if value is not None:
+                            return value
         return 0
 
     @staticmethod
