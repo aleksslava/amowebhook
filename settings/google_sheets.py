@@ -18,6 +18,9 @@ class GoogleSheetsIntegration:
             json=payload,
             timeout=30
         )
+        logger.info(
+            f'Google Sheets response: status_code={response.status_code}, body={response.text}'
+        )
         if response.status_code >= 400:
             logger.error(
                 f'Ошибка отправки данных в Google Sheets: status_code={response.status_code}, body={response.text}'
