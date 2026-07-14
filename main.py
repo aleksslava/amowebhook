@@ -2,9 +2,8 @@ import asyncio
 import datetime
 import json
 import logging
-from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from urllib.parse import parse_qs, unquote_plus, urlencode
+from urllib.parse import parse_qs, urlencode
 from uuid import uuid4
 
 import requests
@@ -18,13 +17,20 @@ from starlette.background import BackgroundTask
 
 from models import Base, EducationVisit
 from services.test_kp_to_pdf import render_template_to_pdf
-from settings.async_amo_api import AmoCRMWrapperAsync, build_amo_results, build_amo_results_analize_customers
+from settings.async_amo_api import AmoCRMWrapperAsync
 from settings.google_sheets import GoogleSheetsIntegration
 from settings.settings import load_config
+from utils.analytics import analyze_and_send_to_sheets, analyze_customers_and_send_to_sheets
+from utils.files import cleanup_generated_file
+from utils.formatting import format_grouped_number
+from utils.tracking import (
+    get_cookie_value,
+    get_tracking_value,
+    normalize_tracking_value,
+    parse_sourcebuster_cookie,
+)
 from utils.utils import (
     Order,
-    conver_timestamp_to_days,
-    convert_data,
     correct_phone,
     get_catalog_elements_from_lead,
     get_items_to_kp,
@@ -75,35 +81,7 @@ google_sheets_customers = (
 )
 
 
-def _format_grouped_number(value: int | float | str | None) -> str:
-    if value in (None, ""):
-        return ""
-
-    raw_value = str(value).replace(" ", "").replace(",", ".")
-    try:
-        number = Decimal(raw_value)
-    except (InvalidOperation, ValueError):
-        return str(value)
-
-    normalized = format(number.normalize(), "f")
-    sign = ""
-    if normalized.startswith("-"):
-        sign = "-"
-        normalized = normalized[1:]
-
-    if "." in normalized:
-        integer_part, fraction_part = normalized.split(".", 1)
-        fraction_part = fraction_part.rstrip("0")
-    else:
-        integer_part, fraction_part = normalized, ""
-
-    grouped_integer = f"{int(integer_part):,}".replace(",", " ")
-    if fraction_part:
-        return f"{sign}{grouped_integer},{fraction_part}"
-    return f"{sign}{grouped_integer}"
-
-
-templates.env.filters["grouped_number"] = _format_grouped_number
+templates.env.filters["grouped_number"] = format_grouped_number
 
 
 @app.on_event("startup")
@@ -118,230 +96,6 @@ async def on_shutdown() -> None:
     await amo_api.close()
 
 
-def _cookie_value(cookies: dict[str, str], key: str) -> str | None:
-    value = cookies.get(key)
-    if value is not None:
-        return value
-    for cookie_key, cookie_value in cookies.items():
-        if cookie_key.strip() == key:
-            return cookie_value
-    return None
-
-
-def _normalize_tracking_value(value: str | None) -> str | None:
-    if value is None:
-        return None
-    cleaned = value.strip()
-    if not cleaned:
-        return None
-    if cleaned.lower() in {"(none)", "none", "null", "undefined"}:
-        return None
-    return cleaned
-
-
-def _parse_sourcebuster_cookie(cookie_value: str | None) -> dict[str, str]:
-    parsed: dict[str, str] = {}
-    if not cookie_value:
-        return parsed
-
-    decoded = unquote_plus(cookie_value).strip()
-    for item in decoded.split("|||"):
-        if "=" not in item:
-            continue
-        key, value = item.split("=", 1)
-        parsed[key.strip()] = value.strip()
-    return parsed
-
-
-def _get_tracking_value(
-        query_params,
-        cookies: dict[str, str],
-        key: str,
-        sbjs_current: dict[str, str],
-        sbjs_first: dict[str, str],
-        sbjs_key: str,
-        cookie_keys: tuple[str, ...] | None = None,
-) -> str | None:
-    value = _normalize_tracking_value(query_params.get(key))
-    if value is not None:
-        return value
-
-    keys_to_check = cookie_keys or (key,)
-    for cookie_key in keys_to_check:
-        value = _normalize_tracking_value(_cookie_value(cookies, cookie_key))
-        if value is not None:
-            return value
-
-    value = _normalize_tracking_value(sbjs_current.get(sbjs_key))
-    if value is not None:
-        return value
-
-    return _normalize_tracking_value(sbjs_first.get(sbjs_key))
-
-
-def _build_payload(amo_results):
-    return [
-        {
-            "lead_id": r.lead_obj.lead_id,
-            "lead_price": r.lead_obj.lead_price,
-            "created_at": convert_data(r.lead_obj.created_at),
-            "close_at": convert_data(r.lead_obj.close_at),
-            "shipment_at": convert_data(r.lead_obj.shipment_at),
-            "attestate_at": convert_data(r.customer_obj.created_at),
-            "contact_id": r.lead_obj.contact_id,
-            "customer_id": r.customer_obj.customer_id,
-            "clean_price": r.lead_obj.clean_price,
-            "last_buy": conver_timestamp_to_days(r.lead_obj.last_buy),
-            "time_from_attestate": conver_timestamp_to_days(r.lead_obj.time_from_attestate),
-            "paid_at": convert_data(r.lead_obj.paid_at),
-        }
-        for r in amo_results
-    ]
-
-
-def _build_payload_customers_analize(amo_results_customers):
-    def _lead_price_value(value) -> Decimal:
-        if value in (None, ""):
-            return Decimal("0")
-        try:
-            price = Decimal(str(value).replace(" ", "").replace(",", "."))
-        except (InvalidOperation, ValueError):
-            return Decimal("0")
-        if not price.is_finite():
-            return Decimal("0")
-        return price
-
-    def _json_amount(value: Decimal) -> int | float:
-        if value == value.to_integral_value():
-            return int(value)
-        return float(value)
-
-    def _paid_at_datetime(value) -> datetime.datetime | None:
-        if value in (None, 0, ""):
-            return None
-        try:
-            return datetime.datetime.fromtimestamp(float(value))
-        except (TypeError, ValueError, OverflowError, OSError):
-            return None
-
-    periods = {
-        "clean_budjet_1": (
-            datetime.datetime(2023, 7, 1, 0, 0, 0),
-            datetime.datetime(2026, 6, 30, 23, 59, 59),
-        ),
-        "clean_budjet_2": (
-            datetime.datetime(2024, 7, 1, 0, 0, 0),
-            datetime.datetime(2026, 6, 30, 23, 59, 59),
-        ),
-        "clean_budjet_3": (
-            datetime.datetime(2025, 7, 1, 0, 0, 0),
-            datetime.datetime(2026, 6, 30, 23, 59, 59),
-        ),
-        "clean_budjet_4": (
-            datetime.datetime(2026, 1, 1, 0, 0, 0),
-            datetime.datetime(2026, 6, 30, 23, 59, 59),
-        ),
-        "clean_budjet_5": (
-            datetime.datetime(2026, 4, 1, 0, 0, 0),
-            datetime.datetime(2026, 6, 30, 23, 59, 59),
-        ),
-    }
-
-    payload = []
-    for result in amo_results_customers:
-        lead_list = result.lead_list
-        clean_budjet = Decimal("0")
-        period_budjets = {key: Decimal("0") for key in periods}
-
-        for lead in lead_list:
-            lead_price = _lead_price_value(lead.lead_price)
-            clean_budjet += lead_price
-
-            paid_at = _paid_at_datetime(lead.paid_at)
-            if paid_at is None:
-                continue
-
-            for key, (start_at, end_at) in periods.items():
-                if start_at <= paid_at <= end_at:
-                    period_budjets[key] += lead_price
-
-        payload.append(
-            {
-                "customer_id": result.customer_obj.customer_id,
-                "status": result.customer_obj.status,
-                "leads_count": len(lead_list),
-                "clean_budjet": _json_amount(clean_budjet),
-                "clean_budjet_1": _json_amount(period_budjets["clean_budjet_1"]),
-                "clean_budjet_2": _json_amount(period_budjets["clean_budjet_2"]),
-                "clean_budjet_3": _json_amount(period_budjets["clean_budjet_3"]),
-                "clean_budjet_4": _json_amount(period_budjets["clean_budjet_4"]),
-                "clean_budjet_5": _json_amount(period_budjets["clean_budjet_5"]),
-            }
-        )
-
-    return payload
-
-
-async def _analyze_and_send_to_sheets(token: str, request_id: str) -> None:
-    try:
-        if google_sheets is None:
-            logger.error("GOOGLE_SHEETS_WEBHOOK_URL is not configured")
-            return
-
-        leads_list, customers_list = await asyncio.gather(
-            amo_api.get_pipeline_1628622_status_142_leads(),
-            amo_api.get_customers_with_contacts(),
-        )
-
-        amo_results = build_amo_results(leads=leads_list, customers=customers_list)
-        payload = _build_payload(amo_results)
-
-        # Если GoogleSheetsIntegration синхронный (requests) — отправляем в thread, чтобы не блокировать event loop
-        response = await asyncio.to_thread(
-            google_sheets.send_json,
-            payload=payload,
-            token=token,
-            request_id=request_id,
-        )
-
-        logger.info(
-            f"Analyze request finished: request_id={request_id}, "
-            f"payload_count={len(payload)}, sheets_status={response.status_code}"
-        )
-    except Exception as error:
-        logger.exception(f"Analyze background task failed: request_id={request_id}, error={error}")
-
-
-async def _analyze_customers_and_send_to_sheets(token: str, request_id: str) -> None:
-    try:
-        if google_sheets is None:
-            logger.error("GOOGLE_SHEETS_WEBHOOK_URL is not configured")
-            return
-
-        leads_list, customers_list = await asyncio.gather(
-            amo_api.get_pipeline_1628622_status_142_leads(),
-            amo_api.get_customers_with_contacts(),
-        )
-
-        amo_results = build_amo_results_analize_customers(leads=leads_list, customers=customers_list)
-        payload = _build_payload_customers_analize(amo_results)
-
-        # Если GoogleSheetsIntegration синхронный (requests) — отправляем в thread, чтобы не блокировать event loop
-        response = await asyncio.to_thread(
-            google_sheets_customers.send_json,
-            payload=payload,
-            token=token,
-            request_id=request_id,
-        )
-
-        logger.info(
-            f"Analyze request finished: request_id={request_id}, "
-            f"payload_count={len(payload)}, sheets_status={response.status_code}"
-        )
-    except Exception as error:
-        logger.exception(f"Analyze background task failed: request_id={request_id}, error={error}")
-
-
 @app.get("/analyze")
 async def analyze(background_tasks: BackgroundTasks, token: str, request_id: str):
     if google_sheets is None:
@@ -351,7 +105,13 @@ async def analyze(background_tasks: BackgroundTasks, token: str, request_id: str
     if token != config.google_sheets_token:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    background_tasks.add_task(_analyze_and_send_to_sheets, token, request_id)
+    background_tasks.add_task(
+        analyze_and_send_to_sheets,
+        amo_api=amo_api,
+        google_sheets=google_sheets,
+        token=token,
+        request_id=request_id,
+    )
     return {"status": "accepted", "request_id": request_id}
 
 @app.get("/analyze_customers")
@@ -363,7 +123,14 @@ async def analyze(background_tasks: BackgroundTasks, token: str, request_id: str
     if token != config.google_sheets_token:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    background_tasks.add_task(_analyze_customers_and_send_to_sheets, token, request_id)
+    background_tasks.add_task(
+        analyze_customers_and_send_to_sheets,
+        amo_api=amo_api,
+        google_sheets=google_sheets,
+        google_sheets_customers=google_sheets_customers,
+        token=token,
+        request_id=request_id,
+    )
     return {"status": "accepted", "request_id": request_id}
 
 @app.post("/sheets")
@@ -489,9 +256,9 @@ async def education(request: Request):
     bot_url = config.telegram_bot_url
     qp = request.query_params
     cookies = request.cookies
-    sbjs_current = _parse_sourcebuster_cookie(_cookie_value(cookies, "sbjs_current"))
-    sbjs_first = _parse_sourcebuster_cookie(_cookie_value(cookies, "sbjs_first"))
-    yclid = _get_tracking_value(
+    sbjs_current = parse_sourcebuster_cookie(get_cookie_value(cookies, "sbjs_current"))
+    sbjs_first = parse_sourcebuster_cookie(get_cookie_value(cookies, "sbjs_first"))
+    yclid = get_tracking_value(
         query_params=qp,
         cookies=cookies,
         key="yclid",
@@ -512,7 +279,7 @@ async def education(request: Request):
         #         return RedirectResponse(f"{bot_url}?{start_query}", status_code=302)
 
         education_visit = EducationVisit(
-            utm_source=_get_tracking_value(
+            utm_source=get_tracking_value(
                 query_params=qp,
                 cookies=cookies,
                 key="utm_source",
@@ -520,7 +287,7 @@ async def education(request: Request):
                 sbjs_first=sbjs_first,
                 sbjs_key="src",
             ),
-            utm_medium=_get_tracking_value(
+            utm_medium=get_tracking_value(
                 query_params=qp,
                 cookies=cookies,
                 key="utm_medium",
@@ -528,7 +295,7 @@ async def education(request: Request):
                 sbjs_first=sbjs_first,
                 sbjs_key="mdm",
             ),
-            utm_campaign=_get_tracking_value(
+            utm_campaign=get_tracking_value(
                 query_params=qp,
                 cookies=cookies,
                 key="utm_campaign",
@@ -536,7 +303,7 @@ async def education(request: Request):
                 sbjs_first=sbjs_first,
                 sbjs_key="cmp",
             ),
-            utm_content=_get_tracking_value(
+            utm_content=get_tracking_value(
                 query_params=qp,
                 cookies=cookies,
                 key="utm_content",
@@ -544,7 +311,7 @@ async def education(request: Request):
                 sbjs_first=sbjs_first,
                 sbjs_key="cnt",
             ),
-            utm_term=_get_tracking_value(
+            utm_term=get_tracking_value(
                 query_params=qp,
                 cookies=cookies,
                 key="utm_term",
@@ -553,10 +320,10 @@ async def education(request: Request):
                 sbjs_key="trm",
             ),
             yclid=yclid,
-            cm_id=_normalize_tracking_value(qp.get("cm_id"))
-                  or _normalize_tracking_value(_cookie_value(cookies, "cm_id")),
-            block=_normalize_tracking_value(qp.get("block"))
-                  or _normalize_tracking_value(_cookie_value(cookies, "block")),
+            cm_id=normalize_tracking_value(qp.get("cm_id"))
+                  or normalize_tracking_value(get_cookie_value(cookies, "cm_id")),
+            block=normalize_tracking_value(qp.get("block"))
+                  or normalize_tracking_value(get_cookie_value(cookies, "block")),
         )
         session.add(education_visit)
         session.commit()
@@ -634,9 +401,9 @@ async def education_max(request: Request):
     bot_url = config.max_bot_url
     qp = request.query_params
     cookies = request.cookies
-    sbjs_current = _parse_sourcebuster_cookie(_cookie_value(cookies, "sbjs_current"))
-    sbjs_first = _parse_sourcebuster_cookie(_cookie_value(cookies, "sbjs_first"))
-    yclid = _get_tracking_value(
+    sbjs_current = parse_sourcebuster_cookie(get_cookie_value(cookies, "sbjs_current"))
+    sbjs_first = parse_sourcebuster_cookie(get_cookie_value(cookies, "sbjs_first"))
+    yclid = get_tracking_value(
         query_params=qp,
         cookies=cookies,
         key="yclid",
@@ -649,7 +416,7 @@ async def education_max(request: Request):
     with SessionLocal() as session:
 
         education_visit = EducationVisit(
-            utm_source=_get_tracking_value(
+            utm_source=get_tracking_value(
                 query_params=qp,
                 cookies=cookies,
                 key="utm_source",
@@ -657,7 +424,7 @@ async def education_max(request: Request):
                 sbjs_first=sbjs_first,
                 sbjs_key="src",
             ),
-            utm_medium=_get_tracking_value(
+            utm_medium=get_tracking_value(
                 query_params=qp,
                 cookies=cookies,
                 key="utm_medium",
@@ -665,7 +432,7 @@ async def education_max(request: Request):
                 sbjs_first=sbjs_first,
                 sbjs_key="mdm",
             ),
-            utm_campaign=_get_tracking_value(
+            utm_campaign=get_tracking_value(
                 query_params=qp,
                 cookies=cookies,
                 key="utm_campaign",
@@ -673,7 +440,7 @@ async def education_max(request: Request):
                 sbjs_first=sbjs_first,
                 sbjs_key="cmp",
             ),
-            utm_content=_get_tracking_value(
+            utm_content=get_tracking_value(
                 query_params=qp,
                 cookies=cookies,
                 key="utm_content",
@@ -681,7 +448,7 @@ async def education_max(request: Request):
                 sbjs_first=sbjs_first,
                 sbjs_key="cnt",
             ),
-            utm_term=_get_tracking_value(
+            utm_term=get_tracking_value(
                 query_params=qp,
                 cookies=cookies,
                 key="utm_term",
@@ -690,10 +457,10 @@ async def education_max(request: Request):
                 sbjs_key="trm",
             ),
             yclid=yclid,
-            cm_id=_normalize_tracking_value(qp.get("cm_id"))
-                  or _normalize_tracking_value(_cookie_value(cookies, "cm_id")),
-            block=_normalize_tracking_value(qp.get("block"))
-                  or _normalize_tracking_value(_cookie_value(cookies, "block")),
+            cm_id=normalize_tracking_value(qp.get("cm_id"))
+                  or normalize_tracking_value(get_cookie_value(cookies, "cm_id")),
+            block=normalize_tracking_value(qp.get("block"))
+                  or normalize_tracking_value(get_cookie_value(cookies, "block")),
         )
         session.add(education_visit)
         session.commit()
@@ -732,14 +499,6 @@ async def get_kp_montage_image() -> FileResponse:
     if not KP_MONTAGE_IMAGE_PATH.exists():
         raise HTTPException(status_code=404, detail="KP montage image not found")
     return FileResponse(KP_MONTAGE_IMAGE_PATH)
-
-
-def _cleanup_generated_file(file_path: str | Path) -> None:
-    path = Path(file_path)
-    try:
-        path.unlink(missing_ok=True)
-    except OSError as error:
-        logger.warning(f"Failed to remove generated file {path}: {error}")
 
 
 @app.get("/kp")
@@ -847,7 +606,7 @@ async def get_kp_pdf(request: Request, lead_id: int) -> FileResponse:
             output_pdf_path=pdf_output_path,
         )
     except Exception as error:
-        _cleanup_generated_file(pdf_output_path)
+        cleanup_generated_file(pdf_output_path)
         logger.exception(f"Failed to generate KP PDF for lead_id={lead_id}: {error}")
         raise HTTPException(status_code=500, detail="Failed to generate PDF")
 
@@ -856,7 +615,7 @@ async def get_kp_pdf(request: Request, lead_id: int) -> FileResponse:
         media_type="application/pdf",
         filename=f"КП HiTE PRO №{lead_id} от {datetime.date.today():%d.%m.%Y}.pdf",
         content_disposition_type="inline",
-        background=BackgroundTask(_cleanup_generated_file, pdf_output_path),
+        background=BackgroundTask(cleanup_generated_file, pdf_output_path),
     )
 
 @app.get("/kp/service")
@@ -893,7 +652,7 @@ async def get_partner_kp(request: Request) -> FileResponse:
             output_pdf_path=pdf_output_path,
         )
     except Exception as error:
-        _cleanup_generated_file(pdf_output_path)
+        cleanup_generated_file(pdf_output_path)
         logger.exception(f"Failed to generate partner KP PDF: {error}")
         raise HTTPException(status_code=500, detail="Failed to generate PDF")
 
@@ -902,7 +661,7 @@ async def get_partner_kp(request: Request) -> FileResponse:
         media_type="application/pdf",
         filename=f"КП HiTE PRO №{lead_id} от {datetime.date.today():%d.%m.%Y}.pdf",
         content_disposition_type="inline",
-        background=BackgroundTask(_cleanup_generated_file, pdf_output_path),
+        background=BackgroundTask(cleanup_generated_file, pdf_output_path),
     )
 
 
