@@ -77,6 +77,11 @@ class MoySkladOrder(Base):
     moysklad_updated_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
     applicable: Mapped[bool | None] = mapped_column(Boolean)
     production_quantity: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    produced_quantity: Mapped[Decimal] = mapped_column(
+        Numeric(18, 6),
+        default=Decimal("0"),
+        server_default="0",
+    )
     performer_name: Mapped[str | None] = mapped_column(String(255), index=True)
     device_name: Mapped[str | None] = mapped_column(String(255))
     state_id: Mapped[str | None] = mapped_column(String(36))
@@ -113,7 +118,7 @@ class OrderItem(Base):
     assortment_name: Mapped[str | None] = mapped_column(String(255))
     assortment_code: Mapped[str | None] = mapped_column(String(255))
     quantity: Mapped[Decimal] = mapped_column(Numeric(18, 6))
-    actual_quantity: Mapped[Decimal] = mapped_column(
+    spent_quantity: Mapped[Decimal] = mapped_column(
         Numeric(18, 6),
         default=Decimal("0"),
         server_default="0",

@@ -87,8 +87,8 @@ select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
 .description p { margin: 7px 0 0; white-space: pre-wrap; line-height: 1.6; }
 .section-heading { display: flex; align-items: baseline; gap: 10px; }
 .section-heading span { color: var(--muted); }
-.actual-cell { min-width: 112px; }
-.actual-input { width: 100px; padding: 9px 10px; text-align: right; font-variant-numeric: tabular-nums; }
+.quantity-cell { min-width: 112px; }
+.quantity-input { width: 100px; padding: 9px 10px; text-align: right; font-variant-numeric: tabular-nums; }
 .save-row { display: flex; justify-content: flex-end; padding-top: 22px; }
 .readiness { min-width: 132px; display: grid; grid-template-columns: minmax(72px, 1fr) 44px; align-items: center; gap: 9px; }
 .readiness-track { height: 7px; overflow: hidden; border-radius: 999px; background: #dfe2e5; }

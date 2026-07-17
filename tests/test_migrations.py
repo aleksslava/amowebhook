@@ -41,6 +41,90 @@ class AlembicMigrationTests(unittest.TestCase):
             )
             engine.dispose()
 
+    def test_production_progress_normalizes_existing_values(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database_path = Path(directory) / "production-progress.db"
+            database_url = f"sqlite:///{database_path.as_posix()}"
+            with patch.dict(os.environ, {"DATABASE_URL": database_url}):
+                command.upgrade(self.alembic_config(), "0005_order_device")
+
+            engine = create_engine(database_url)
+            with engine.begin() as connection:
+                connection.execute(
+                    text(
+                        "INSERT INTO orders "
+                        "(id, moysklad_id, name, raw_payload, synced_at) "
+                        "VALUES (1, 'progress-order', 'Progress order', '{}', "
+                        "'2026-07-17 12:00:00')"
+                    )
+                )
+                connection.execute(
+                    text(
+                        "INSERT INTO order_items "
+                        "(order_id, moysklad_position_id, quantity, "
+                        "actual_quantity, raw_payload) VALUES "
+                        "(1, 'valid', 5, 2, '{}'), "
+                        "(1, 'fractional', 5, 3.8, '{}'), "
+                        "(1, 'over', 4.7, 7, '{}'), "
+                        "(1, 'negative', 5, -2, '{}'), "
+                        "(1, 'zero-plan', 0, 3, '{}')"
+                    )
+                )
+
+            with patch.dict(os.environ, {"DATABASE_URL": database_url}):
+                command.upgrade(self.alembic_config(), "head")
+
+            order_columns = {
+                column["name"] for column in inspect(engine).get_columns("orders")
+            }
+            item_columns = {
+                column["name"]
+                for column in inspect(engine).get_columns("order_items")
+            }
+            self.assertIn("produced_quantity", order_columns)
+            self.assertIn("spent_quantity", item_columns)
+            self.assertNotIn("actual_quantity", item_columns)
+            with engine.connect() as connection:
+                produced = connection.scalar(
+                    text(
+                        "SELECT produced_quantity FROM orders "
+                        "WHERE moysklad_id = 'progress-order'"
+                    )
+                )
+                spent = dict(
+                    connection.execute(
+                        text(
+                            "SELECT moysklad_position_id, spent_quantity "
+                            "FROM order_items"
+                        )
+                    ).all()
+                )
+            self.assertEqual(produced, 0)
+            self.assertEqual(
+                spent,
+                {
+                    "valid": 2,
+                    "fractional": 3,
+                    "over": 4,
+                    "negative": 0,
+                    "zero-plan": 0,
+                },
+            )
+
+            with patch.dict(os.environ, {"DATABASE_URL": database_url}):
+                command.downgrade(self.alembic_config(), "0005_order_device")
+            order_columns = {
+                column["name"] for column in inspect(engine).get_columns("orders")
+            }
+            item_columns = {
+                column["name"]
+                for column in inspect(engine).get_columns("order_items")
+            }
+            self.assertNotIn("produced_quantity", order_columns)
+            self.assertIn("actual_quantity", item_columns)
+            self.assertNotIn("spent_quantity", item_columns)
+            engine.dispose()
+
     def test_stamp_preserves_existing_education_visits(self):
         with tempfile.TemporaryDirectory() as directory:
             database_path = Path(directory) / "existing.db"
@@ -85,7 +169,7 @@ class AlembicMigrationTests(unittest.TestCase):
                 )
 
             with patch.dict(os.environ, {"DATABASE_URL": database_url}):
-                command.upgrade(self.alembic_config(), "head")
+                command.upgrade(self.alembic_config(), "0004_item_actual_quantity")
             with engine.connect() as connection:
                 actual_quantity = connection.scalar(
                     text(

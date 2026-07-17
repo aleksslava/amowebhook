@@ -5,7 +5,7 @@ import logging
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_FLOOR
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -227,13 +227,13 @@ def _sync_once(
         order.synced_at = datetime.utcnow()
         session.flush()
 
-        actual_quantities: dict[str, Decimal] = {}
+        spent_quantities: dict[str, Decimal] = {}
         if not created:
-            actual_quantities = dict(
+            spent_quantities = dict(
                 session.execute(
                     select(
                         OrderItem.moysklad_position_id,
-                        OrderItem.actual_quantity,
+                        OrderItem.spent_quantity,
                     ).where(OrderItem.order_id == order.id)
                 ).all()
             )
@@ -264,6 +264,32 @@ def _sync_once(
                 if isinstance(assortment_meta, Mapping)
                 else None
             )
+            quantity = _decimal(position.get("quantity"), required=True)
+            if quantity is None:
+                raise MoySkladDataError("MoySklad position quantity is required")
+            spent_limit = max(
+                quantity.to_integral_value(rounding=ROUND_FLOOR),
+                Decimal("0"),
+            )
+            previous_spent = spent_quantities.get(position_id, Decimal("0"))
+            spent_quantity = min(
+                max(
+                    previous_spent.to_integral_value(rounding=ROUND_FLOOR),
+                    Decimal("0"),
+                ),
+                spent_limit,
+            )
+            if spent_quantity != previous_spent:
+                logger.warning(
+                    "MoySklad position spent quantity was limited "
+                    "order_id=%s position_id=%s previous=%s quantity=%s limited=%s",
+                    moysklad_id,
+                    position_id,
+                    previous_spent,
+                    quantity,
+                    spent_quantity,
+                )
+
             session.add(
                 OrderItem(
                     order_id=order.id,
@@ -278,8 +304,8 @@ def _sync_once(
                     assortment_code=(
                         assortment_code if isinstance(assortment_code, str) else None
                     ),
-                    quantity=_decimal(position.get("quantity"), required=True),
-                    actual_quantity=actual_quantities.get(position_id, Decimal("0")),
+                    quantity=quantity,
+                    spent_quantity=spent_quantity,
                     reserve=_decimal(position.get("reserve"), required=False),
                     raw_payload=dict(position),
                 )

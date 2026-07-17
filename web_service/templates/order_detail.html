@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% from "_readiness.html" import readiness %}
 {% block title %}{{ order.name }} · Производство{% endblock %}
 {% block content %}
 <a class="back-link" href="/cabinet/orders{% if current_user.is_admin and order.user_id %}?user_id={{ order.user_id }}{% endif %}">← К списку заказов</a>
@@ -12,6 +11,8 @@
     <div class="order-id">ID МоегоСклада<br><code>{{ order.moysklad_id }}</code></div>
 </header>
 
+<form method="post" action="/cabinet/orders/{{ order.id }}/production">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 <section class="detail-section" aria-labelledby="order-data-heading">
     <h2 id="order-data-heading">Данные заказа</h2>
     <dl class="detail-grid">
@@ -20,6 +21,7 @@
         <div><dt>Дата заказа</dt><dd>{{ order.moment|datetime }}</dd></div>
         <div><dt>План производства</dt><dd>{{ order.delivery_planned_moment|datetime }}</dd></div>
         <div><dt>Объём производства</dt><dd>{{ order.production_quantity|number }}</dd></div>
+        <div><dt>Произведено</dt><dd><input class="quantity-input" type="number" name="produced_quantity" value="{{ order.produced_quantity|number }}" min="0" max="999999999999" step="1" inputmode="numeric" required aria-label="Произведено"></dd></div>
         <div><dt>Код</dt><dd>{{ order.code or '—' }}</dd></div>
         <div><dt>Внешний код</dt><dd>{{ order.external_code or '—' }}</dd></div>
         <div><dt>Проведён</dt><dd>{{ 'Да' if order.applicable else ('Нет' if order.applicable is not none else '—') }}</dd></div>
@@ -37,13 +39,11 @@
         <h2 id="items-heading">Позиции заказа</h2>
         <span>{{ order.items|length }}</span>
     </div>
-    {% if saved %}<p class="notice" role="status">Фактическое выполнение сохранено.</p>{% endif %}
+    {% if saved %}<p class="notice" role="status">Данные производства сохранены.</p>{% endif %}
     {% if order.items %}
-    <form method="post" action="/cabinet/orders/{{ order.id }}/actuals">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <div class="table-scroll">
         <table class="data-table item-table">
-            <thead><tr><th>Наименование</th><th>Код</th><th>Тип</th><th class="numeric">Количество</th><th class="numeric">Резерв</th><th class="numeric">Факт</th><th>Готовность</th></tr></thead>
+            <thead><tr><th>Наименование</th><th>Код</th><th>Тип</th><th class="numeric">Количество</th><th class="numeric">Резерв</th><th class="numeric">Затрачено</th></tr></thead>
             <tbody>
             {% for item in order.items %}
             <tr>
@@ -52,18 +52,17 @@
                 <td data-label="Тип">{{ item.assortment_type or '—' }}</td>
                 <td data-label="Количество" class="numeric">{{ item.quantity|number }}</td>
                 <td data-label="Резерв" class="numeric">{{ item.reserve|number }}</td>
-                <td data-label="Факт" class="numeric actual-cell">
+                <td data-label="Затрачено" class="numeric quantity-cell">
                     <input type="hidden" name="position_id" value="{{ item.moysklad_position_id }}">
-                    <input class="actual-input" type="number" name="actual_quantity" value="{{ item.actual_quantity|number }}" min="0" max="999999999999" step="1" inputmode="numeric" required aria-label="Факт для {{ item.assortment_name or 'позиции' }}">
+                    <input class="quantity-input" type="number" name="spent_quantity" value="{{ item.spent_quantity|number }}" min="0" max="{{ spent_limits[item.id]|number }}" step="1" inputmode="numeric" required aria-label="Затрачено для {{ item.assortment_name or 'позиции' }}">
                 </td>
-                <td data-label="Готовность">{{ readiness(item_readiness[item.id]) }}</td>
             </tr>
             {% endfor %}
             </tbody>
         </table>
     </div>
-        <div class="save-row"><button class="primary-button" type="submit">Сохранить</button></div>
-    </form>
     {% else %}<p class="muted">В заказе нет позиций.</p>{% endif %}
+    <div class="save-row"><button class="primary-button" type="submit">Сохранить</button></div>
 </section>
+</form>
 {% endblock %}

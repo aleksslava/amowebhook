@@ -5,7 +5,7 @@ import math
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_FLOOR, ROUND_HALF_UP
 from pathlib import Path
 from typing import Callable
 
@@ -31,7 +31,7 @@ from web_service.auth import (
 PACKAGE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
 PAGE_SIZE = 25
-MAX_ACTUAL_QUANTITY = 999_999_999_999
+MAX_LOCAL_QUANTITY = 999_999_999_999
 _INTEGER_PATTERN = re.compile(r"^[0-9]+$")
 
 
@@ -53,11 +53,11 @@ def _format_number(value: Decimal | None) -> str:
     return formatted.rstrip("0").rstrip(".") if "." in formatted else formatted
 
 
-def calculate_readiness(actual: Decimal, quantity: Decimal) -> Readiness:
+def calculate_readiness(completed: Decimal, quantity: Decimal) -> Readiness:
     if quantity <= 0:
         percent = Decimal("0")
     else:
-        percent = actual / quantity * Decimal("100")
+        percent = completed / quantity * Decimal("100")
     rounded = percent.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
     width = min(max(percent, Decimal("0")), Decimal("100"))
     return Readiness(
@@ -68,15 +68,31 @@ def calculate_readiness(actual: Decimal, quantity: Decimal) -> Readiness:
 
 
 def calculate_order_readiness(order: MoySkladOrder) -> Readiness:
-    total_actual = sum(
-        (item.actual_quantity for item in order.items),
-        Decimal("0"),
+    return calculate_readiness(
+        order.produced_quantity or Decimal("0"),
+        order.production_quantity or Decimal("0"),
     )
-    total_quantity = sum(
-        (item.quantity for item in order.items),
-        Decimal("0"),
-    )
-    return calculate_readiness(total_actual, total_quantity)
+
+
+def _parse_local_quantity(value: str, field_name: str) -> Decimal:
+    if not _INTEGER_PATTERN.fullmatch(value):
+        raise HTTPException(
+            status_code=400,
+            detail=f"{field_name} must be a non-negative integer",
+        )
+    normalized = value.lstrip("0") or "0"
+    if len(normalized) > 12:
+        raise HTTPException(status_code=400, detail=f"{field_name} is too large")
+    parsed = int(normalized)
+    if parsed > MAX_LOCAL_QUANTITY:
+        raise HTTPException(status_code=400, detail=f"{field_name} is too large")
+    return Decimal(parsed)
+
+
+def _spent_limit(quantity: Decimal) -> Decimal:
+    if quantity <= 0:
+        return Decimal("0")
+    return quantity.to_integral_value(rounding=ROUND_FLOOR)
 
 
 templates.env.filters["datetime"] = _format_datetime
@@ -255,10 +271,7 @@ def create_web_router(
             count_query = select(func.count(MoySkladOrder.id))
             orders_query = (
                 select(MoySkladOrder)
-                .options(
-                    joinedload(MoySkladOrder.user),
-                    selectinload(MoySkladOrder.items),
-                )
+                .options(joinedload(MoySkladOrder.user))
                 .order_by(MoySkladOrder.moment.desc(), MoySkladOrder.id.desc())
                 .offset((page - 1) * PAGE_SIZE)
                 .limit(PAGE_SIZE)
@@ -314,9 +327,8 @@ def create_web_router(
             ):
                 raise HTTPException(status_code=404, detail="Order not found")
             order.items.sort(key=lambda item: (item.assortment_name or "", item.id))
-            item_readiness = {
-                item.id: calculate_readiness(item.actual_quantity, item.quantity)
-                for item in order.items
+            spent_limits = {
+                item.id: _spent_limit(item.quantity) for item in order.items
             }
             return template(
                 request,
@@ -325,17 +337,18 @@ def create_web_router(
                     "current_user": current_user,
                     "csrf_token": web_session.csrf_token,
                     "order": order,
-                    "item_readiness": item_readiness,
+                    "spent_limits": spent_limits,
                     "saved": request.query_params.get("saved") == "1",
                 },
             )
 
-    @router.post("/orders/{order_id}/actuals", include_in_schema=False)
-    def save_actual_quantities(
+    @router.post("/orders/{order_id}/production", include_in_schema=False)
+    def save_production_quantities(
         request: Request,
         order_id: int,
+        produced_quantity: str = Form(""),
         position_id: list[str] = Form([]),
-        actual_quantity: list[str] = Form([]),
+        spent_quantity: list[str] = Form([]),
         csrf_token: str = Form(...),
     ) -> Response:
         with session_factory() as db:
@@ -349,48 +362,49 @@ def create_web_router(
             ):
                 raise HTTPException(status_code=404, detail="Order not found")
             require_csrf(web_session, csrf_token)
+            parsed_produced = _parse_local_quantity(
+                produced_quantity,
+                "Produced quantity",
+            )
 
-            if not position_id or len(position_id) != len(actual_quantity):
+            if len(position_id) != len(spent_quantity):
                 raise HTTPException(status_code=400, detail="Invalid item values")
             if len(set(position_id)) != len(position_id):
                 raise HTTPException(status_code=400, detail="Duplicate position id")
 
             parsed_values: dict[str, Decimal] = {}
-            for source_id, value in zip(position_id, actual_quantity):
-                if not _INTEGER_PATTERN.fullmatch(value):
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Actual quantity must be a non-negative integer",
-                    )
-                normalized = value.lstrip("0") or "0"
-                if len(normalized) > 12:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Actual quantity is too large",
-                    )
-                parsed = int(normalized)
-                if parsed > MAX_ACTUAL_QUANTITY:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Actual quantity is too large",
-                    )
-                parsed_values[source_id] = Decimal(parsed)
+            for source_id, value in zip(position_id, spent_quantity):
+                parsed_values[source_id] = _parse_local_quantity(
+                    value,
+                    "Spent quantity",
+                )
 
-            items = list(
-                db.scalars(
-                    select(OrderItem).where(
-                        OrderItem.order_id == order.id,
-                        OrderItem.moysklad_position_id.in_(position_id),
+            items = []
+            if position_id:
+                items = list(
+                    db.scalars(
+                        select(OrderItem).where(
+                            OrderItem.order_id == order.id,
+                            OrderItem.moysklad_position_id.in_(position_id),
+                        )
                     )
                 )
-            )
             if len(items) != len(position_id):
                 raise HTTPException(
                     status_code=409,
                     detail="Order positions changed; reload the page",
                 )
             for item in items:
-                item.actual_quantity = parsed_values[item.moysklad_position_id]
+                parsed_spent = parsed_values[item.moysklad_position_id]
+                if parsed_spent > _spent_limit(item.quantity):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Spent quantity exceeds item quantity",
+                    )
+
+            order.produced_quantity = parsed_produced
+            for item in items:
+                item.spent_quantity = parsed_values[item.moysklad_position_id]
             db.commit()
 
         return RedirectResponse(

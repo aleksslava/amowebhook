@@ -263,7 +263,7 @@ class MoySkladSyncTests(unittest.TestCase):
             self.assertIsNone(session.scalar(select(MoySkladOrder)))
             self.assertIsNone(session.scalar(select(OrderItem)))
 
-    def test_update_preserves_actual_quantity_by_position_id(self):
+    def test_update_preserves_and_limits_spent_quantity_by_position_id(self):
         sync_processing_order(
             self.Session,
             make_order_payload(updated="2026-07-17 10:00:00.000"),
@@ -277,23 +277,30 @@ class MoySkladSyncTests(unittest.TestCase):
                 item.moysklad_position_id: item
                 for item in session.scalars(select(OrderItem))
             }
-            items["position-1"].actual_quantity = Decimal("2")
-            items["position-2"].actual_quantity = Decimal("3")
+            items["position-1"].spent_quantity = Decimal("2")
+            items["position-2"].spent_quantity = Decimal("3")
+            session.scalar(select(MoySkladOrder)).produced_quantity = Decimal("6")
 
-        sync_processing_order(
-            self.Session,
-            make_order_payload(updated="2026-07-17 11:00:00.000"),
-            [
-                make_position("position-2", 7, "Updated product"),
-                make_position("position-3", 5, "New product"),
-            ],
-        )
+        with self.assertLogs("services.moy_sklad_sync", level="WARNING") as logs:
+            sync_processing_order(
+                self.Session,
+                make_order_payload(updated="2026-07-17 11:00:00.000"),
+                [
+                    make_position("position-2", 2.5, "Updated product"),
+                    make_position("position-3", 5, "New product"),
+                ],
+            )
 
         with self.Session() as session:
+            order = session.scalar(select(MoySkladOrder))
             items = {
                 item.moysklad_position_id: item
                 for item in session.scalars(select(OrderItem))
             }
             self.assertEqual(set(items), {"position-2", "position-3"})
-            self.assertEqual(items["position-2"].actual_quantity, Decimal("3"))
-            self.assertEqual(items["position-3"].actual_quantity, Decimal("0"))
+            self.assertEqual(order.produced_quantity, Decimal("6"))
+            self.assertEqual(items["position-2"].spent_quantity, Decimal("2"))
+            self.assertEqual(items["position-3"].spent_quantity, Decimal("0"))
+        self.assertTrue(
+            any("spent quantity was limited" in message for message in logs.output)
+        )
