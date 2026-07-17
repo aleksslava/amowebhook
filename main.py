@@ -395,6 +395,11 @@ async def proceed_webhook_tp(req: Request):
     return {'status': 'ok'}
 
 
+@app.post("/moysklad/processingorder")
+async def moysklad_processingorder(payload: dict):
+    logger.info("MoySklad processingorder webhook payload=%s", payload)
+    return {"status": "ok"}
+
 
 @app.get("/max")
 async def education_max(request: Request):
