@@ -96,6 +96,7 @@ select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
 .state-off::before { background: #9ba2aa; }
 .actions { text-align: right; }
 .actions form { margin: 0; }
+.row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 16px; white-space: nowrap; }
 .danger-link { border: 0; color: var(--danger); background: none; text-decoration: underline; text-underline-offset: 3px; }
 
 .narrow-heading, .user-form { max-width: 620px; }
@@ -139,6 +140,7 @@ select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
     .data-table td { display: grid; grid-template-columns: minmax(105px, 38%) 1fr; gap: 12px; padding: 7px 0; border: 0; text-align: left !important; }
     .data-table td::before { content: attr(data-label); color: var(--muted); font-size: 12px; }
     .data-table td.actions { display: block; padding-top: 14px; }
+    .row-actions { justify-content: flex-start; }
     .detail-grid { grid-template-columns: 1fr; gap: 21px; }
     .order-heading { flex-direction: column; }
     .order-id { text-align: left; }

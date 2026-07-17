@@ -302,6 +302,9 @@ def create_web_router(
                     "user_rows": rows,
                     "created": request.query_params.get("created") == "1",
                     "disabled": request.query_params.get("disabled") == "1",
+                    "password_changed": (
+                        request.query_params.get("password_changed") == "1"
+                    ),
                 },
             )
 
@@ -326,12 +329,82 @@ def create_web_router(
                 },
             )
 
+    @router.get("/admin/users/{user_id}/password", include_in_schema=False)
+    def change_password_page(request: Request, user_id: int) -> Response:
+        with session_factory() as db:
+            auth = require_user(request, db)
+            if isinstance(auth, Response):
+                return auth
+            current_user, web_session = auth
+            if not current_user.is_admin:
+                raise HTTPException(status_code=403, detail="Administrator access required")
+            user = db.get(User, user_id)
+            if user is None:
+                raise HTTPException(status_code=404, detail="User not found")
+            return template(
+                request,
+                "password_form.html",
+                {
+                    "current_user": current_user,
+                    "csrf_token": web_session.csrf_token,
+                    "user": user,
+                    "error": None,
+                },
+            )
+
+    @router.post("/admin/users/{user_id}/password", include_in_schema=False)
+    def change_password(
+        request: Request,
+        user_id: int,
+        password: str = Form(""),
+        password_confirmation: str = Form(""),
+        csrf_token: str = Form(...),
+    ) -> Response:
+        with session_factory() as db:
+            auth = require_user(request, db)
+            if isinstance(auth, Response):
+                return auth
+            current_user, web_session = auth
+            if not current_user.is_admin:
+                raise HTTPException(status_code=403, detail="Administrator access required")
+            require_csrf(web_session, csrf_token)
+            user = db.get(User, user_id)
+            if user is None:
+                raise HTTPException(status_code=404, detail="User not found")
+
+            error = None
+            if not 1 <= len(password) <= 128:
+                error = "Пароль должен содержать от 1 до 128 символов"
+            elif password != password_confirmation:
+                error = "Пароли не совпадают"
+
+            if error is not None:
+                return template(
+                    request,
+                    "password_form.html",
+                    {
+                        "current_user": current_user,
+                        "csrf_token": web_session.csrf_token,
+                        "user": user,
+                        "error": error,
+                    },
+                    status_code=400,
+                )
+
+            user.password_hash = hash_password(password)
+            db.commit()
+
+        return RedirectResponse(
+            "/cabinet/admin/users?password_changed=1",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
     @router.post("/admin/users", include_in_schema=False)
     def create_user(
         request: Request,
         name: str = Form(...),
-        password: str = Form(...),
-        password_confirmation: str = Form(...),
+        password: str = Form(""),
+        password_confirmation: str = Form(""),
         is_admin: bool = Form(False),
         csrf_token: str = Form(...),
     ) -> Response:
@@ -348,8 +421,8 @@ def create_web_router(
             error = None
             if not clean_name or len(clean_name) > 255:
                 error = "Логин должен содержать от 1 до 255 символов"
-            elif not 8 <= len(password) <= 128:
-                error = "Пароль должен содержать от 8 до 128 символов"
+            elif not 1 <= len(password) <= 128:
+                error = "Пароль должен содержать от 1 до 128 символов"
             elif password != password_confirmation:
                 error = "Пароли не совпадают"
             elif db.scalar(select(User.id).where(User.name == clean_name)) is not None:

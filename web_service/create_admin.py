@@ -21,8 +21,8 @@ def main() -> None:
 
     password = getpass.getpass("Password: ")
     confirmation = getpass.getpass("Repeat password: ")
-    if not 8 <= len(password) <= 128:
-        raise SystemExit("Password must contain from 8 to 128 characters")
+    if not 1 <= len(password) <= 128:
+        raise SystemExit("Password must contain from 1 to 128 characters")
     if password != confirmation:
         raise SystemExit("Passwords do not match")
 

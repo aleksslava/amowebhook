@@ -11,6 +11,7 @@
 </header>
 {% if created %}<p class="notice" role="status">Пользователь создан.</p>{% endif %}
 {% if disabled %}<p class="notice" role="status">Доступ пользователя отключён.</p>{% endif %}
+{% if password_changed %}<p class="notice" role="status">Пароль пользователя изменён.</p>{% endif %}
 <div class="table-scroll">
     <table class="data-table">
         <thead><tr><th>Логин</th><th>Роль</th><th>Состояние</th><th class="numeric">Заказов</th><th><span class="sr-only">Действия</span></th></tr></thead>
@@ -22,12 +23,15 @@
             <td data-label="Состояние"><span class="state {% if not user.is_active %}state-off{% endif %}">{{ 'Активен' if user.is_active else 'Отключён' }}</span></td>
             <td data-label="Заказов" class="numeric"><a href="/cabinet/orders?user_id={{ user.id }}">{{ order_count }}</a></td>
             <td class="actions">
-                {% if user.is_active and user.id != current_user.id %}
-                <form method="post" action="/cabinet/admin/users/{{ user.id }}/disable" onsubmit="return confirm('Отключить доступ пользователя {{ user.name }}?')">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button class="danger-link" type="submit">Отключить</button>
-                </form>
-                {% endif %}
+                <div class="row-actions">
+                    <a href="/cabinet/admin/users/{{ user.id }}/password">Сменить пароль</a>
+                    {% if user.is_active and user.id != current_user.id %}
+                    <form method="post" action="/cabinet/admin/users/{{ user.id }}/disable" onsubmit="return confirm('Отключить доступ пользователя {{ user.name }}?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button class="danger-link" type="submit">Отключить</button>
+                    </form>
+                    {% endif %}
+                </div>
             </td>
         </tr>
         {% endfor %}

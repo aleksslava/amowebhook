@@ -59,7 +59,10 @@ class WebServiceTests(unittest.TestCase):
             self.bob_id = bob.id
             alice_order = self.make_order("Заказ Алисы", alice.id, "order-alice")
             bob_order = self.make_order("Заказ Бориса", bob.id, "order-bob")
-            db.add_all([alice_order, bob_order])
+            external_order = self.make_order("Заказ внешнего", None, "order-external")
+            external_order.performer_name = "Внешний исполнитель"
+            unassigned_order = self.make_order("Заказ без исполнителя", None, "order-unassigned")
+            db.add_all([alice_order, bob_order, external_order, unassigned_order])
             db.flush()
             self.alice_order_id = alice_order.id
             self.bob_order_id = bob_order.id
@@ -145,6 +148,7 @@ class WebServiceTests(unittest.TestCase):
 
         order_list = self.client.get("/cabinet/orders")
         self.assertEqual(order_list.status_code, 200)
+        self.assertNotIn("<th>Исполнитель</th>", order_list.text)
         self.assertIn("Заказ Алисы", order_list.text)
         self.assertNotIn("Заказ Бориса", order_list.text)
 
@@ -157,8 +161,11 @@ class WebServiceTests(unittest.TestCase):
     def test_admin_sees_all_orders_and_can_filter_by_user(self):
         self.login("Администратор", "admin-password")
         order_list = self.client.get("/cabinet/orders")
+        self.assertIn("<th>Исполнитель</th>", order_list.text)
         self.assertIn("Заказ Алисы", order_list.text)
         self.assertIn("Заказ Бориса", order_list.text)
+        self.assertIn("Внешний исполнитель", order_list.text)
+        self.assertIn("Не назначен", order_list.text)
 
         filtered = self.client.get(f"/cabinet/orders?user_id={self.alice_id}")
         self.assertIn("Заказ Алисы", filtered.text)
@@ -176,8 +183,8 @@ class WebServiceTests(unittest.TestCase):
             "/cabinet/admin/users",
             data={
                 "name": "Новый исполнитель",
-                "password": "new-password",
-                "password_confirmation": "new-password",
+                "password": "x",
+                "password_confirmation": "x",
                 "csrf_token": csrf_token,
             },
             follow_redirects=False,
@@ -186,10 +193,165 @@ class WebServiceTests(unittest.TestCase):
         with self.Session() as db:
             user = db.scalar(select(User).where(User.name == "Новый исполнитель"))
             self.assertIsNotNone(user)
-            self.assertNotEqual(user.password_hash, "new-password")
-            self.assertTrue(verify_password("new-password", user.password_hash))
+            self.assertNotEqual(user.password_hash, "x")
+            self.assertTrue(verify_password("x", user.password_hash))
             self.assertFalse(user.is_admin)
             self.assertTrue(user.is_active)
+        empty_password = self.client.post(
+            "/cabinet/admin/users",
+            data={
+                "name": "Без пароля",
+                "password": "",
+                "password_confirmation": "",
+                "csrf_token": csrf_token,
+            },
+        )
+        self.assertEqual(empty_password.status_code, 400)
+
+    def test_admin_changes_user_password_without_ending_existing_session(self):
+        user_client = TestClient(self.app)
+        old_password_client = TestClient(self.app)
+        new_password_client = TestClient(self.app)
+        try:
+            self.login("Алиса", "alice-password", client=user_client)
+            self.login("Администратор", "admin-password")
+            csrf_token = self.session_csrf()
+            user_list = self.client.get("/cabinet/admin/users")
+            self.assertIn(
+                f'/cabinet/admin/users/{self.alice_id}/password',
+                user_list.text,
+            )
+            password_page = self.client.get(
+                f"/cabinet/admin/users/{self.alice_id}/password"
+            )
+            self.assertEqual(password_page.status_code, 200)
+            self.assertIn("Алиса", password_page.text)
+
+            response = self.client.post(
+                f"/cabinet/admin/users/{self.alice_id}/password",
+                data={
+                    "password": "z",
+                    "password_confirmation": "z",
+                    "csrf_token": csrf_token,
+                },
+                follow_redirects=False,
+            )
+            self.assertEqual(response.status_code, 303)
+            self.assertEqual(
+                response.headers["location"],
+                "/cabinet/admin/users?password_changed=1",
+            )
+            self.assertEqual(user_client.get("/cabinet/orders").status_code, 200)
+            self.assertEqual(
+                self.login(
+                    "Алиса",
+                    "alice-password",
+                    client=old_password_client,
+                ).status_code,
+                401,
+            )
+            self.assertEqual(
+                self.login("Алиса", "z", client=new_password_client).status_code,
+                303,
+            )
+        finally:
+            user_client.close()
+            old_password_client.close()
+            new_password_client.close()
+
+    def test_admin_can_change_own_password_and_keep_session(self):
+        self.login("Администратор", "admin-password")
+        csrf_token = self.session_csrf()
+        response = self.client.post(
+            f"/cabinet/admin/users/{self.admin_id}/password",
+            data={
+                "password": "a",
+                "password_confirmation": "a",
+                "csrf_token": csrf_token,
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(self.client.get("/cabinet/orders").status_code, 200)
+        fresh_client = TestClient(self.app)
+        try:
+            self.assertEqual(
+                self.login("Администратор", "a", client=fresh_client).status_code,
+                303,
+            )
+        finally:
+            fresh_client.close()
+
+    def test_change_password_validation_and_access_control(self):
+        self.login("Администратор", "admin-password")
+        csrf_token = self.session_csrf()
+        mismatch = self.client.post(
+            f"/cabinet/admin/users/{self.alice_id}/password",
+            data={
+                "password": "a",
+                "password_confirmation": "b",
+                "csrf_token": csrf_token,
+            },
+        )
+        self.assertEqual(mismatch.status_code, 400)
+        empty = self.client.post(
+            f"/cabinet/admin/users/{self.alice_id}/password",
+            data={
+                "password": "",
+                "password_confirmation": "",
+                "csrf_token": csrf_token,
+            },
+        )
+        self.assertEqual(empty.status_code, 400)
+        too_long = self.client.post(
+            f"/cabinet/admin/users/{self.alice_id}/password",
+            data={
+                "password": "a" * 129,
+                "password_confirmation": "a" * 129,
+                "csrf_token": csrf_token,
+            },
+        )
+        self.assertEqual(too_long.status_code, 400)
+        invalid_csrf = self.client.post(
+            f"/cabinet/admin/users/{self.alice_id}/password",
+            data={
+                "password": "a",
+                "password_confirmation": "a",
+                "csrf_token": "invalid",
+            },
+        )
+        self.assertEqual(invalid_csrf.status_code, 400)
+        missing_user = self.client.get("/cabinet/admin/users/99999/password")
+        self.assertEqual(missing_user.status_code, 404)
+        missing_user_post = self.client.post(
+            "/cabinet/admin/users/99999/password",
+            data={
+                "password": "a",
+                "password_confirmation": "a",
+                "csrf_token": csrf_token,
+            },
+        )
+        self.assertEqual(missing_user_post.status_code, 404)
+
+        user_client = TestClient(self.app)
+        try:
+            self.login("Алиса", "alice-password", client=user_client)
+            forbidden = user_client.get(
+                f"/cabinet/admin/users/{self.bob_id}/password"
+            )
+            self.assertEqual(forbidden.status_code, 403)
+            user_csrf = self.session_csrf(client=user_client)
+            forbidden_post = user_client.post(
+                f"/cabinet/admin/users/{self.bob_id}/password",
+                data={
+                    "password": "a",
+                    "password_confirmation": "a",
+                    "csrf_token": user_csrf,
+                },
+            )
+            self.assertEqual(forbidden_post.status_code, 403)
+        finally:
+            user_client.close()
 
     def test_disabling_user_invalidates_existing_session_and_keeps_orders(self):
         user_client = TestClient(self.app)

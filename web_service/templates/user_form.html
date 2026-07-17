@@ -13,8 +13,8 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     {% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
     <label><span>Логин</span><input name="name" value="{{ name }}" maxlength="255" autocomplete="off" required autofocus></label>
-    <label><span>Пароль</span><input type="password" name="password" minlength="8" maxlength="128" autocomplete="new-password" required><small>От 8 до 128 символов</small></label>
-    <label><span>Повторите пароль</span><input type="password" name="password_confirmation" minlength="8" maxlength="128" autocomplete="new-password" required></label>
+    <label><span>Пароль</span><input type="password" name="password" maxlength="128" autocomplete="new-password" required><small>От 1 до 128 символов</small></label>
+    <label><span>Повторите пароль</span><input type="password" name="password_confirmation" maxlength="128" autocomplete="new-password" required></label>
     <label class="check-label"><input type="checkbox" name="is_admin" value="true" {% if is_admin %}checked{% endif %}><span>Права администратора</span></label>
     <div class="form-actions"><button class="primary-button" type="submit">Создать пользователя</button><a href="/cabinet/admin/users">Отмена</a></div>
 </form>
