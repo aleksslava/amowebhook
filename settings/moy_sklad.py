@@ -98,7 +98,10 @@ class MoySkladClient:
                 base_url=f"{self.base_url}/",
                 timeout=self.timeout,
                 transport=self._transport,
-                headers={"Accept": "application/json", "Accept-Encoding": "gzip"},
+                headers={
+                    "Accept": "application/json;charset=utf-8",
+                    "Accept-Encoding": "gzip",
+                },
             )
 
     async def close(self) -> None:
@@ -203,7 +206,6 @@ class MoySkladClient:
         json: Any = None,
         authenticated: bool,
         auth: httpx.Auth | None = None,
-        headers: Mapping[str, str] | None = None,
         allow_post_retry: bool = False,
     ) -> Any:
         await self.open()
@@ -217,7 +219,7 @@ class MoySkladClient:
         )
         attempts = self.max_retries + 1 if can_retry else 1
 
-        request_headers = dict(headers or {})
+        request_headers: dict[str, str] = {}
         if authenticated:
             if not self.token:
                 raise RuntimeError("MOYSKLAD_TOKEN is not configured")
@@ -430,7 +432,6 @@ class MoySkladClient:
             "security/token",
             authenticated=False,
             auth=httpx.BasicAuth(login, password),
-            headers={"Accept": "application/json;charset=utf-8"},
             allow_post_retry=True,
         )
         token = payload.get("access_token") if isinstance(payload, Mapping) else None

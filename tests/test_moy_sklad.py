@@ -52,9 +52,11 @@ class MoySkladQueryTests(unittest.TestCase):
 class MoySkladClientTests(unittest.IsolatedAsyncioTestCase):
     async def test_uses_bearer_auth_and_does_not_log_token(self):
         seen_authorization = []
+        seen_accept = []
 
         def handler(request: httpx.Request) -> httpx.Response:
             seen_authorization.append(request.headers.get("Authorization"))
+            seen_accept.append(request.headers.get("Accept"))
             return httpx.Response(200, json={"ok": True})
 
         token = "top-secret-token"
@@ -74,6 +76,7 @@ class MoySkladClientTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result, {"ok": True})
         self.assertEqual(seen_authorization, [f"Bearer {token}"])
+        self.assertEqual(seen_accept, ["application/json;charset=utf-8"])
         self.assertNotIn(token, "\n".join(captured.output))
         self.assertNotIn("Authorization", "\n".join(captured.output))
 
