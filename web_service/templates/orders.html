@@ -28,6 +28,7 @@
         <thead>
         <tr>
             <th>Заказ</th>
+            <th>Устройство</th>
             {% if current_user.is_admin %}<th>Исполнитель</th>{% endif %}
             <th>Статус</th>
             <th>Дата заказа</th>
@@ -43,6 +44,7 @@
                 <a class="order-link" href="/cabinet/orders/{{ order.id }}">{{ order.name }}</a>
                 {% if order.code %}<span class="cell-note">Код {{ order.code }}</span>{% endif %}
             </td>
+            <td data-label="Устройство">{{ order.device_name or '—' }}</td>
             {% if current_user.is_admin %}
             <td data-label="Исполнитель">{{ order.user.name if order.user else (order.performer_name or 'Не назначен') }}</td>
             {% endif %}

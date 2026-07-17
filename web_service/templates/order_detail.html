@@ -16,6 +16,7 @@
     <h2 id="order-data-heading">Данные заказа</h2>
     <dl class="detail-grid">
         <div><dt>Исполнитель</dt><dd>{{ order.user.name if order.user else (order.performer_name or 'Не назначен') }}</dd></div>
+        <div><dt>Устройство</dt><dd>{{ order.device_name or '—' }}</dd></div>
         <div><dt>Дата заказа</dt><dd>{{ order.moment|datetime }}</dd></div>
         <div><dt>План производства</dt><dd>{{ order.delivery_planned_moment|datetime }}</dd></div>
         <div><dt>Объём производства</dt><dd>{{ order.production_quantity|number }}</dd></div>

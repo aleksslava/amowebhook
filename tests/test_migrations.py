@@ -102,3 +102,45 @@ class AlembicMigrationTests(unittest.TestCase):
                 },
             )
             engine.dispose()
+
+    def test_device_name_preserves_existing_orders(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database_path = Path(directory) / "existing-orders.db"
+            database_url = f"sqlite:///{database_path.as_posix()}"
+            with patch.dict(os.environ, {"DATABASE_URL": database_url}):
+                command.upgrade(self.alembic_config(), "0004_item_actual_quantity")
+
+            engine = create_engine(database_url)
+            with engine.begin() as connection:
+                connection.execute(
+                    text(
+                        "INSERT INTO orders "
+                        "(moysklad_id, name, raw_payload, synced_at) "
+                        "VALUES ('legacy-order', 'Legacy order', '{}', "
+                        "'2026-07-17 12:00:00')"
+                    )
+                )
+
+            with patch.dict(os.environ, {"DATABASE_URL": database_url}):
+                command.upgrade(self.alembic_config(), "head")
+            columns = {
+                column["name"] for column in inspect(engine).get_columns("orders")
+            }
+            self.assertIn("device_name", columns)
+            with engine.connect() as connection:
+                row = connection.execute(
+                    text(
+                        "SELECT name, device_name FROM orders "
+                        "WHERE moysklad_id = 'legacy-order'"
+                    )
+                ).one()
+            self.assertEqual(row.name, "Legacy order")
+            self.assertIsNone(row.device_name)
+
+            with patch.dict(os.environ, {"DATABASE_URL": database_url}):
+                command.downgrade(self.alembic_config(), "0004_item_actual_quantity")
+            columns = {
+                column["name"] for column in inspect(engine).get_columns("orders")
+            }
+            self.assertNotIn("device_name", columns)
+            engine.dispose()

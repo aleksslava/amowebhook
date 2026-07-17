@@ -78,6 +78,7 @@ class MoySkladOrder(Base):
     applicable: Mapped[bool | None] = mapped_column(Boolean)
     production_quantity: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
     performer_name: Mapped[str | None] = mapped_column(String(255), index=True)
+    device_name: Mapped[str | None] = mapped_column(String(255))
     state_id: Mapped[str | None] = mapped_column(String(36))
     state_name: Mapped[str | None] = mapped_column(String(255))
     raw_payload: Mapped[dict[str, Any]] = mapped_column(JSON)

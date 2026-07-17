@@ -10,6 +10,7 @@ from models import Base, MoySkladOrder, OrderItem, User
 from services.moy_sklad_sync import (
     MoySkladDataError,
     MoySkladWebhookPayloadError,
+    extract_device_name,
     extract_performer_name,
     processing_order_hrefs,
     sync_processing_order,
@@ -20,11 +21,14 @@ def make_order_payload(
     *,
     updated: str,
     performer=None,
+    device=None,
     name: str = "Order 1",
 ):
     attributes = []
     if performer is not None:
         attributes.append({"name": "Исполнитель", "value": performer})
+    if device is not None:
+        attributes.append({"name": "Устройство", "value": device})
     return {
         "id": "order-id",
         "name": name,
@@ -87,18 +91,34 @@ class MoySkladSyncTests(unittest.TestCase):
         self.engine.dispose()
         self.temp_dir.cleanup()
 
-    def test_extracts_string_and_dictionary_performer(self):
+    def test_extracts_string_and_dictionary_custom_fields(self):
         string_payload = make_order_payload(
             updated="2026-07-17 10:00:00.000",
             performer="Alice",
+            device="Device A",
         )
         dictionary_payload = make_order_payload(
             updated="2026-07-17 10:00:00.000",
             performer={"name": "Bob"},
+            device={"name": "Device B"},
+        )
+        unknown_device_payload = make_order_payload(
+            updated="2026-07-17 10:00:00.000",
+            device={"id": "device-id"},
+        )
+        wrong_case_payload = make_order_payload(
+            updated="2026-07-17 10:00:00.000",
+        )
+        wrong_case_payload["attributes"].append(
+            {"name": "устройство", "value": "Device C"}
         )
 
         self.assertEqual(extract_performer_name(string_payload), "Alice")
         self.assertEqual(extract_performer_name(dictionary_payload), "Bob")
+        self.assertEqual(extract_device_name(string_payload), "Device A")
+        self.assertEqual(extract_device_name(dictionary_payload), "Device B")
+        self.assertIsNone(extract_device_name(unknown_device_payload))
+        self.assertIsNone(extract_device_name(wrong_case_payload))
 
     def test_deduplicates_relevant_webhook_hrefs(self):
         event = {
@@ -132,6 +152,7 @@ class MoySkladSyncTests(unittest.TestCase):
             make_order_payload(
                 updated="2026-07-17 10:00:00.000",
                 performer={"name": "Alice"},
+                device={"name": "Device A"},
             ),
             [
                 make_position("position-1", 2, "Product 1"),
@@ -149,6 +170,7 @@ class MoySkladSyncTests(unittest.TestCase):
                 make_order_payload(
                     updated="2026-07-17 11:00:00.000",
                     performer="alice",
+                    device="Device B",
                     name="Updated order",
                 ),
                 [make_position("position-2", 7, "Updated product")],
@@ -161,6 +183,7 @@ class MoySkladSyncTests(unittest.TestCase):
             items = list(session.scalars(select(OrderItem)))
             self.assertEqual(order.name, "Updated order")
             self.assertEqual(order.performer_name, "alice")
+            self.assertEqual(order.device_name, "Device B")
             self.assertIsNone(order.user_id)
             self.assertEqual(len(items), 1)
             self.assertEqual(items[0].moysklad_position_id, "position-2")
@@ -183,6 +206,45 @@ class MoySkladSyncTests(unittest.TestCase):
             items = list(session.scalars(select(OrderItem)))
             self.assertEqual(order.name, "Updated order")
             self.assertEqual([item.moysklad_position_id for item in items], ["position-2"])
+
+    def test_update_clears_removed_or_unknown_device(self):
+        sync_processing_order(
+            self.Session,
+            make_order_payload(
+                updated="2026-07-17 10:00:00.000",
+                device={"name": "Device A"},
+            ),
+            [],
+        )
+        sync_processing_order(
+            self.Session,
+            make_order_payload(
+                updated="2026-07-17 11:00:00.000",
+            ),
+            [],
+        )
+        with self.Session() as session:
+            self.assertIsNone(session.scalar(select(MoySkladOrder)).device_name)
+
+        sync_processing_order(
+            self.Session,
+            make_order_payload(
+                updated="2026-07-17 12:00:00.000",
+                device={"name": "Device B"},
+            ),
+            [],
+        )
+        sync_processing_order(
+            self.Session,
+            make_order_payload(
+                updated="2026-07-17 13:00:00.000",
+                device={"id": "device-id"},
+            ),
+            [],
+        )
+
+        with self.Session() as session:
+            self.assertIsNone(session.scalar(select(MoySkladOrder)).device_name)
 
     def test_rolls_back_order_when_positions_are_invalid(self):
         duplicate = make_position("position-1", 2, "Product 1")

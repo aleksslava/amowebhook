@@ -72,13 +72,19 @@ def processing_order_hrefs(payload: Mapping[str, Any]) -> list[str]:
     return result
 
 
-def extract_performer_name(payload: Mapping[str, Any]) -> str | None:
+def _extract_attribute_name(
+    payload: Mapping[str, Any],
+    attribute_name: str,
+) -> str | None:
     attributes = payload.get("attributes")
     if not isinstance(attributes, list):
         return None
 
     for attribute in attributes:
-        if not isinstance(attribute, Mapping) or attribute.get("name") != "Исполнитель":
+        if (
+            not isinstance(attribute, Mapping)
+            or attribute.get("name") != attribute_name
+        ):
             continue
         value = attribute.get("value")
         if isinstance(value, str):
@@ -88,6 +94,14 @@ def extract_performer_name(payload: Mapping[str, Any]) -> str | None:
             return name if isinstance(name, str) and name else None
         return None
     return None
+
+
+def extract_performer_name(payload: Mapping[str, Any]) -> str | None:
+    return _extract_attribute_name(payload, "Исполнитель")
+
+
+def extract_device_name(payload: Mapping[str, Any]) -> str | None:
+    return _extract_attribute_name(payload, "Устройство")
 
 
 def _parse_datetime(value: Any) -> datetime | None:
@@ -147,6 +161,7 @@ def _sync_once(
     name = _required_string(order_payload, "name")
     source_updated_at = _parse_datetime(order_payload.get("updated"))
     performer_name = extract_performer_name(order_payload)
+    device_name = extract_device_name(order_payload)
 
     with session_factory() as session, session.begin():
         order = session.scalar(
@@ -205,6 +220,7 @@ def _sync_once(
             required=False,
         )
         order.performer_name = performer_name
+        order.device_name = device_name
         order.state_id = _entity_id(state)
         order.state_name = state_name if isinstance(state_name, str) else None
         order.raw_payload = dict(order_payload)
