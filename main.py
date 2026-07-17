@@ -12,13 +12,20 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 from starlette.background import BackgroundTask
 
-from models import Base, EducationVisit
+from models import EducationVisit
+from services.moy_sklad_sync import (
+    MoySkladDataError,
+    MoySkladWebhookPayloadError,
+    process_processing_order_webhook,
+)
 from services.test_kp_to_pdf import render_template_to_pdf
 from settings.async_amo_api import AmoCRMWrapperAsync
 from settings.google_sheets import GoogleSheetsIntegration
+from settings.moy_sklad import MoySkladAPIError, MoySkladClient
 from settings.settings import load_config
 from utils.analytics import analyze_and_send_to_sheets, analyze_customers_and_send_to_sheets
 from utils.files import cleanup_generated_file
@@ -58,6 +65,7 @@ template_dir = KP_TEMPLATE_PATH.resolve().parent
 db_connect_args = {"check_same_thread": False} if config.database_url.startswith("sqlite") else {}
 db_engine = create_engine(config.database_url, connect_args=db_connect_args)
 SessionLocal = sessionmaker(bind=db_engine, autocommit=False, autoflush=False)
+moysklad_client = MoySkladClient(token=config.moysklad_token)
 
 amo_api = AmoCRMWrapperAsync(
     path=config.amo_config.path_to_env,
@@ -86,14 +94,15 @@ templates.env.filters["grouped_number"] = format_grouped_number
 
 @app.on_event("startup")
 async def on_startup() -> None:
-    Base.metadata.create_all(bind=db_engine)
     await amo_api.open()
+    await moysklad_client.open()
     # Обычно init_oauth2() НЕ вызывают на каждый старт, если токены уже сохранены в .env
 
 
 @app.on_event("shutdown")
 async def on_shutdown() -> None:
     await amo_api.close()
+    await moysklad_client.close()
 
 
 @app.get("/analyze")
@@ -398,6 +407,25 @@ async def proceed_webhook_tp(req: Request):
 @app.post("/moysklad/processingorder")
 async def moysklad_processingorder(payload: dict):
     logger.info("MoySklad processingorder webhook payload=%s", payload)
+    if not config.moysklad_token:
+        raise HTTPException(status_code=503, detail="MOYSKLAD_TOKEN is not configured")
+
+    try:
+        await process_processing_order_webhook(
+            payload,
+            moysklad_client,
+            SessionLocal,
+        )
+    except (MoySkladAPIError, MoySkladDataError) as error:
+        logger.exception("Failed to load MoySklad processing order")
+        raise HTTPException(status_code=502, detail="MoySklad API request failed") from error
+    except (MoySkladWebhookPayloadError, ValueError) as error:
+        logger.warning("Invalid MoySklad webhook payload: %s", error)
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except SQLAlchemyError as error:
+        logger.exception("Failed to save MoySklad processing order")
+        raise HTTPException(status_code=500, detail="Database operation failed") from error
+
     return {"status": "ok"}
 
 

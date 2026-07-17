@@ -258,6 +258,60 @@ class MoySkladClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(all(query["expand"] == "positions" for query in seen_queries))
         self.assertTrue(all(query["order"] == "updated,desc" for query in seen_queries))
 
+    async def test_fetches_processing_order_and_all_expanded_positions(self):
+        seen_queries = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            query = dict(request.url.params)
+            seen_queries.append((request.url.path, query))
+            if request.url.path.endswith("/entity/processingorder/order-id"):
+                return httpx.Response(
+                    200,
+                    json={
+                        "id": "order-id",
+                        "name": "Order 1",
+                        "meta": {"type": "processingorder"},
+                        "positions": {
+                            "meta": {
+                                "href": "https://example.test/api/remap/1.2/"
+                                "entity/processingorder/order-id/positions"
+                            }
+                        },
+                    },
+                )
+
+            offset = int(query["offset"])
+            count = 100 if offset == 0 else 1
+            return httpx.Response(
+                200,
+                json={
+                    "rows": [
+                        {"id": f"position-{offset + index}"}
+                        for index in range(count)
+                    ],
+                    "meta": {
+                        "nextHref": "next" if offset == 0 else None,
+                    },
+                },
+            )
+
+        client = MoySkladClient(
+            token="token",
+            base_url="https://example.test/api/remap/1.2",
+            transport=httpx.MockTransport(handler),
+        )
+        order, positions = await client.fetch_processing_order(
+            "https://example.test/api/remap/1.2/entity/processingorder/order-id"
+        )
+        await client.close()
+
+        self.assertEqual(order["id"], "order-id")
+        self.assertEqual(len(positions), 101)
+        self.assertEqual(seen_queries[0][1]["expand"], "state")
+        self.assertEqual(seen_queries[1][1]["expand"], "assortment")
+        self.assertEqual(seen_queries[1][1]["limit"], "100")
+        self.assertEqual(seen_queries[2][1]["offset"], "100")
+
 
 class MoySkladWebhookTests(unittest.IsolatedAsyncioTestCase):
     async def test_creates_both_webhooks_once_and_then_reuses_them(self):

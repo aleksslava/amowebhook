@@ -42,6 +42,7 @@ class Config:
     telegram_bot_url: str
     max_bot_url: str
     get_utm_token: str | None
+    moysklad_token: str | None
 
 
 # Функция создания экземпляра класса config
@@ -72,5 +73,6 @@ def load_config(path: str | None = os.path.abspath('./.env')):
         database_url=env('DATABASE_URL', default='sqlite:///./amowebhook.db'),
         telegram_bot_url=env('TELEGRAM_BOT_URL', default='https://t.me/your_bot'),
         max_bot_url=env('MAX_BOT_URL'),
-        get_utm_token=env('GET_UTM_TOKEN', default=None)
+        get_utm_token=env('GET_UTM_TOKEN', default=None),
+        moysklad_token=env('MOYSKLAD_TOKEN', default=None),
     )

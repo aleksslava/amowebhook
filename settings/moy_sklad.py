@@ -423,6 +423,50 @@ class MoySkladClient:
             if not has_next and len(rows) < page_limit:
                 break
 
+    async def fetch_processing_order(
+        self,
+        endpoint: str,
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+        payload = await self.request("GET", endpoint, expand=["state"])
+        if not isinstance(payload, dict) or not isinstance(payload.get("id"), str):
+            raise MoySkladAPIError(
+                status_code=200,
+                method="GET",
+                endpoint=self._safe_endpoint(endpoint),
+                errors=[{"error": "processing order response is not an object"}],
+            )
+
+        meta = payload.get("meta")
+        if isinstance(meta, Mapping) and meta.get("type") != "processingorder":
+            raise MoySkladAPIError(
+                status_code=200,
+                method="GET",
+                endpoint=self._safe_endpoint(endpoint),
+                errors=[{"error": "response is not a processing order"}],
+            )
+
+        positions = payload.get("positions")
+        positions_meta = positions.get("meta") if isinstance(positions, Mapping) else None
+        positions_href = (
+            positions_meta.get("href") if isinstance(positions_meta, Mapping) else None
+        )
+        if not isinstance(positions_href, str) or not positions_href:
+            raise MoySkladAPIError(
+                status_code=200,
+                method="GET",
+                endpoint=self._safe_endpoint(endpoint),
+                errors=[{"error": "processing order does not contain positions href"}],
+            )
+
+        position_rows = [
+            row
+            async for row in self.iter_rows(
+                positions_href,
+                expand=["assortment"],
+            )
+        ]
+        return payload, position_rows
+
     async def generate_token(self, login: str, password: str) -> str:
         if not login or not password:
             raise ValueError("MoySklad login and password are required")
