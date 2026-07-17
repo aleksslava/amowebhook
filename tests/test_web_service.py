@@ -12,7 +12,7 @@ from sqlalchemy.pool import StaticPool
 from models import Base, MoySkladOrder, OrderItem, User
 from web_service import create_web_router
 from web_service.auth import hash_password, verify_password
-from web_service.router import calculate_readiness
+from web_service.router import _order_status_class, calculate_readiness
 
 
 class WebServiceTests(unittest.TestCase):
@@ -60,6 +60,7 @@ class WebServiceTests(unittest.TestCase):
             self.bob_id = bob.id
             alice_order = self.make_order("Заказ Алисы", alice.id, "order-alice")
             alice_order.device_name = "Устройство Алисы"
+            alice_order.state_name = "Готово"
             bob_order = self.make_order("Заказ Бориса", bob.id, "order-bob")
             external_order = self.make_order("Заказ внешнего", None, "order-external")
             external_order.performer_name = "Внешний исполнитель"
@@ -185,6 +186,23 @@ class WebServiceTests(unittest.TestCase):
             ("150%", "100", True),
         )
 
+    def test_order_status_classification(self):
+        expected = {
+            "Готово": "ready",
+            "В работе": "in-work",
+            "К комплектовке": "picking",
+            "Планируется": "planned",
+            "Резерв": "reserve",
+            "Ремонт": "repair",
+            "Пауза": "paused",
+            "Ожидание": "waiting",
+        }
+        for state_name, css_class in expected.items():
+            with self.subTest(state_name=state_name):
+                self.assertEqual(_order_status_class(state_name), css_class)
+        self.assertEqual(_order_status_class("Неизвестный статус"), "neutral")
+        self.assertEqual(_order_status_class(None), "neutral")
+
     def test_guest_is_redirected_to_login(self):
         response = self.client.get("/cabinet/orders", follow_redirects=False)
         self.assertEqual(response.status_code, 303)
@@ -205,6 +223,10 @@ class WebServiceTests(unittest.TestCase):
         self.assertIn("Устройство Алисы", order_list.text)
         self.assertIn("Заказ Алисы", order_list.text)
         self.assertNotIn("Заказ Бориса", order_list.text)
+        self.assertIn(
+            'class="order-status order-status--ready"><span class="status-dot"></span>Готово',
+            order_list.text,
+        )
 
         detail = self.client.get(f"/cabinet/orders/{self.alice_order_id}")
         self.assertEqual(detail.status_code, 200)
@@ -215,6 +237,15 @@ class WebServiceTests(unittest.TestCase):
         self.assertNotIn("<th class=\"numeric\">Факт</th>", detail.text)
         self.assertNotIn("<th>Готовность</th>", detail.text)
         self.assertIn("Сохранить", detail.text)
+        self.assertIn(
+            'class="order-status order-status--ready"><span class="status-dot"></span>Готово',
+            detail.text,
+        )
+        self.assertIn(
+            'href="https://online.moysklad.ru/app/#processingorder/edit?id=order-alice" target="_blank" rel="noopener noreferrer"',
+            detail.text,
+        )
+        self.assertIn("Открыть заказ в МоемСкладе", detail.text)
         forbidden = self.client.get(f"/cabinet/orders/{self.bob_order_id}")
         self.assertEqual(forbidden.status_code, 404)
 

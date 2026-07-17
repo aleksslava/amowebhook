@@ -33,6 +33,16 @@ templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
 PAGE_SIZE = 25
 MAX_LOCAL_QUANTITY = 999_999_999_999
 _INTEGER_PATTERN = re.compile(r"^[0-9]+$")
+_ORDER_STATUS_CLASSES = {
+    "Готово": "ready",
+    "В работе": "in-work",
+    "К комплектовке": "picking",
+    "Планируется": "planned",
+    "Резерв": "reserve",
+    "Ремонт": "repair",
+    "Пауза": "paused",
+    "Ожидание": "waiting",
+}
 
 
 @dataclass(frozen=True)
@@ -51,6 +61,10 @@ def _format_number(value: Decimal | None) -> str:
         return "—"
     formatted = f"{value:f}"
     return formatted.rstrip("0").rstrip(".") if "." in formatted else formatted
+
+
+def _order_status_class(value: str | None) -> str:
+    return _ORDER_STATUS_CLASSES.get(value, "neutral")
 
 
 def calculate_readiness(completed: Decimal, quantity: Decimal) -> Readiness:
@@ -97,6 +111,7 @@ def _spent_limit(quantity: Decimal) -> Decimal:
 
 templates.env.filters["datetime"] = _format_datetime
 templates.env.filters["number"] = _format_number
+templates.env.filters["order_status_class"] = _order_status_class
 
 
 def create_web_router(

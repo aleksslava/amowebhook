@@ -6,9 +6,12 @@
     <div>
         <p class="eyebrow">Заказ на производство</p>
         <h1>{{ order.name }}</h1>
-        <p class="status-line"><span class="status-dot"></span>{{ order.state_name or 'Без статуса' }}</p>
+        <p class="status-line"><span class="order-status order-status--{{ order.state_name|order_status_class }}"><span class="status-dot"></span>{{ order.state_name or 'Без статуса' }}</span></p>
     </div>
-    <div class="order-id">ID МоегоСклада<br><code>{{ order.moysklad_id }}</code></div>
+    <div class="order-id">
+        ID МоегоСклада<br><code>{{ order.moysklad_id }}</code><br>
+        <a class="moysklad-link" href="https://online.moysklad.ru/app/#processingorder/edit?id={{ order.moysklad_id }}" target="_blank" rel="noopener noreferrer">Открыть заказ в МоемСкладе</a>
+    </div>
 </header>
 
 <form method="post" action="/cabinet/orders/{{ order.id }}/production">

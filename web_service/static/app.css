@@ -65,7 +65,17 @@ select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
 .order-link { font-weight: 750; text-decoration-color: #b8bdc2; }
 .order-link:hover { color: var(--accent-dark); text-decoration-color: currentColor; }
 .cell-note { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
-.status-dot { display: inline-block; width: 7px; height: 7px; margin-right: 8px; border-radius: 50%; background: var(--accent); vertical-align: 1px; }
+.order-status { display: inline-flex; align-items: center; gap: 7px; padding: 3px 8px; border: 1px solid #c9ced4; border-radius: 999px; color: #5f6873; background: transparent; font-size: 12px; font-weight: 700; line-height: 1.35; white-space: nowrap; }
+.order-status--neutral { border-style: dashed; }
+.order-status--ready { color: #166534; background: #dcfce7; border-color: #86efac; }
+.order-status--in-work { color: #854d0e; background: #fef9c3; border-color: #fde047; }
+.order-status--picking { color: #9d174d; background: #fce7f3; border-color: #f9a8d4; }
+.order-status--planned { color: #4b5563; background: #f3f4f6; border-color: #d1d5db; }
+.order-status--reserve { color: #991b1b; background: #fee2e2; border-color: #fca5a5; }
+.order-status--repair { color: #111827; background: #e5e7eb; border-color: #4b5563; }
+.order-status--paused { color: #075985; background: #e0f2fe; border-color: #7dd3fc; }
+.order-status--waiting { color: #7f1d3d; background: #f8e8ed; border-color: #d8a0b1; }
+.status-dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: currentColor; }
 .pagination { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-top: 26px; color: var(--muted); font-size: 14px; }
 .pagination > :last-child { justify-self: end; }
 
@@ -76,6 +86,8 @@ select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
 .status-line { margin: 12px 0 0; color: var(--muted); }
 .order-id { color: var(--muted); font-size: 12px; line-height: 1.8; text-align: right; }
 .order-id code { color: var(--ink); font-size: 12px; }
+.moysklad-link { display: inline-block; margin-top: 7px; color: var(--accent-dark); font-weight: 650; }
+.moysklad-link:hover { color: var(--ink); }
 
 .detail-section { padding: 28px 0 38px; border-top: 1px solid var(--ink); }
 .detail-section h2 { margin: 0 0 24px; font-size: 20px; letter-spacing: -.02em; }
