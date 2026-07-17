@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Пользователи · Производство{% endblock %}
+{% block content %}
+<header class="page-heading">
+    <div>
+        <p class="eyebrow">Управление доступом</p>
+        <h1>Пользователи</h1>
+        <p class="muted">Логин должен полностью совпадать со значением поля «Исполнитель».</p>
+    </div>
+    <a class="primary-button" href="/cabinet/admin/users/new">Новый пользователь</a>
+</header>
+{% if created %}<p class="notice" role="status">Пользователь создан.</p>{% endif %}
+{% if disabled %}<p class="notice" role="status">Доступ пользователя отключён.</p>{% endif %}
+<div class="table-scroll">
+    <table class="data-table">
+        <thead><tr><th>Логин</th><th>Роль</th><th>Состояние</th><th class="numeric">Заказов</th><th><span class="sr-only">Действия</span></th></tr></thead>
+        <tbody>
+        {% for user, order_count in user_rows %}
+        <tr>
+            <td data-label="Логин"><strong>{{ user.name }}</strong></td>
+            <td data-label="Роль">{{ 'Администратор' if user.is_admin else 'Пользователь' }}</td>
+            <td data-label="Состояние"><span class="state {% if not user.is_active %}state-off{% endif %}">{{ 'Активен' if user.is_active else 'Отключён' }}</span></td>
+            <td data-label="Заказов" class="numeric"><a href="/cabinet/orders?user_id={{ user.id }}">{{ order_count }}</a></td>
+            <td class="actions">
+                {% if user.is_active and user.id != current_user.id %}
+                <form method="post" action="/cabinet/admin/users/{{ user.id }}/disable" onsubmit="return confirm('Отключить доступ пользователя {{ user.name }}?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button class="danger-link" type="submit">Отключить</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

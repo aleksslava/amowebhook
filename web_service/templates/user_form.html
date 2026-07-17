@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Новый пользователь · Производство{% endblock %}
+{% block content %}
+<a class="back-link" href="/cabinet/admin/users">← К пользователям</a>
+<header class="page-heading narrow-heading">
+    <div>
+        <p class="eyebrow">Управление доступом</p>
+        <h1>Новый пользователь</h1>
+        <p class="muted">После создания заказы привяжутся при следующем webhook, если логин совпадает с исполнителем.</p>
+    </div>
+</header>
+<form method="post" action="/cabinet/admin/users" class="form-stack user-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+    <label><span>Логин</span><input name="name" value="{{ name }}" maxlength="255" autocomplete="off" required autofocus></label>
+    <label><span>Пароль</span><input type="password" name="password" minlength="8" maxlength="128" autocomplete="new-password" required><small>От 8 до 128 символов</small></label>
+    <label><span>Повторите пароль</span><input type="password" name="password_confirmation" minlength="8" maxlength="128" autocomplete="new-password" required></label>
+    <label class="check-label"><input type="checkbox" name="is_admin" value="true" {% if is_admin %}checked{% endif %}><span>Права администратора</span></label>
+    <div class="form-actions"><button class="primary-button" type="submit">Создать пользователя</button><a href="/cabinet/admin/users">Отмена</a></div>
+</form>
+{% endblock %}

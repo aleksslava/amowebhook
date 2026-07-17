@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Заказы · Производство{% endblock %}
+{% block content %}
+<header class="page-heading">
+    <div>
+        <p class="eyebrow">{% if current_user.is_admin %}Все производство{% else %}Моё производство{% endif %}</p>
+        <h1>{% if selected_user %}Заказы: {{ selected_user.name }}{% else %}Заказы на производство{% endif %}</h1>
+        <p class="muted">{{ total }} {{ 'заказ' if total == 1 else 'заказов' }}</p>
+    </div>
+    {% if current_user.is_admin %}
+    <form method="get" action="/cabinet/orders" class="compact-filter">
+        <label for="user_id">Исполнитель</label>
+        <select id="user_id" name="user_id" onchange="this.form.submit()">
+            <option value="">Все пользователи</option>
+            {% for user in users %}
+            <option value="{{ user.id }}" {% if selected_user_id == user.id %}selected{% endif %}>{{ user.name }}{% if not user.is_active %} · отключён{% endif %}</option>
+            {% endfor %}
+        </select>
+        <noscript><button type="submit">Показать</button></noscript>
+    </form>
+    {% endif %}
+</header>
+
+{% if orders %}
+<div class="table-scroll">
+    <table class="data-table">
+        <thead>
+        <tr>
+            <th>Заказ</th>
+            {% if current_user.is_admin %}<th>Исполнитель</th>{% endif %}
+            <th>Статус</th>
+            <th>Дата заказа</th>
+            <th>План производства</th>
+            <th class="numeric">Объём</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for order in orders %}
+        <tr>
+            <td data-label="Заказ">
+                <a class="order-link" href="/cabinet/orders/{{ order.id }}">{{ order.name }}</a>
+                {% if order.code %}<span class="cell-note">Код {{ order.code }}</span>{% endif %}
+            </td>
+            {% if current_user.is_admin %}
+            <td data-label="Исполнитель">{{ order.user.name if order.user else (order.performer_name or 'Не назначен') }}</td>
+            {% endif %}
+            <td data-label="Статус"><span class="status-dot"></span>{{ order.state_name or 'Без статуса' }}</td>
+            <td data-label="Дата заказа">{{ order.moment|datetime }}</td>
+            <td data-label="План производства">{{ order.delivery_planned_moment|datetime }}</td>
+            <td data-label="Объём" class="numeric">{{ order.production_quantity|number }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if total_pages > 1 %}
+<nav class="pagination" aria-label="Страницы заказов">
+    {% set suffix = '&user_id=' ~ selected_user_id if selected_user_id else '' %}
+    {% if page > 1 %}<a href="?page={{ page - 1 }}{{ suffix }}">← Назад</a>{% else %}<span></span>{% endif %}
+    <span>{{ page }} из {{ total_pages }}</span>
+    {% if page < total_pages %}<a href="?page={{ page + 1 }}{{ suffix }}">Далее →</a>{% else %}<span></span>{% endif %}
+</nav>
+{% endif %}
+{% else %}
+<div class="empty-state">
+    <p class="eyebrow">Пока пусто</p>
+    <h2>Заказы не найдены</h2>
+    <p class="muted">Они появятся здесь после синхронизации с МоимСкладом.</p>
+</div>
+{% endif %}
+{% endblock %}

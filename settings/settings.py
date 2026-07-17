@@ -43,6 +43,8 @@ class Config:
     max_bot_url: str
     get_utm_token: str | None
     moysklad_token: str | None
+    web_session_secret: str | None
+    web_session_cookie_secure: bool
 
 
 # Функция создания экземпляра класса config
@@ -75,4 +77,6 @@ def load_config(path: str | None = os.path.abspath('./.env')):
         max_bot_url=env('MAX_BOT_URL'),
         get_utm_token=env('GET_UTM_TOKEN', default=None),
         moysklad_token=env('MOYSKLAD_TOKEN', default=None),
+        web_session_secret=env('WEB_SESSION_SECRET', default=None),
+        web_session_cookie_secure=env.bool('WEB_SESSION_COOKIE_SECURE', default=True),
     )

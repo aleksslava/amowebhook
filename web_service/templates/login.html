@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Вход · Производство{% endblock %}
+{% block body_class %}login-page{% endblock %}
+{% block content %}
+<section class="login-panel">
+    <div class="login-brand"><span class="brand-mark">П</span> Производство</div>
+    <div>
+        <p class="eyebrow">Личный кабинет</p>
+        <h1>Войдите, чтобы увидеть свои заказы</h1>
+        <p class="muted">Используйте имя исполнителя и пароль, выданный администратором.</p>
+    </div>
+    <form method="post" action="/cabinet/login" class="form-stack">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+        <label>
+            <span>Логин</span>
+            <input name="name" value="{{ name }}" maxlength="255" autocomplete="username" required autofocus>
+        </label>
+        <label>
+            <span>Пароль</span>
+            <input type="password" name="password" maxlength="128" autocomplete="current-password" required>
+        </label>
+        <button class="primary-button" type="submit">Войти</button>
+    </form>
+</section>
+{% endblock %}

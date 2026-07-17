@@ -63,4 +63,6 @@ class AlembicMigrationTests(unittest.TestCase):
                 )
             self.assertEqual(source, "existing")
             self.assertIn("orders", inspect(engine).get_table_names())
+            user_columns = {column["name"] for column in inspect(engine).get_columns("users")}
+            self.assertIn("is_active", user_columns)
             engine.dispose()

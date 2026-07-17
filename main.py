@@ -42,6 +42,7 @@ from utils.utils import (
     get_catalog_elements_from_lead,
     get_items_to_kp,
 )
+from web_service import create_web_router
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -66,6 +67,13 @@ db_connect_args = {"check_same_thread": False} if config.database_url.startswith
 db_engine = create_engine(config.database_url, connect_args=db_connect_args)
 SessionLocal = sessionmaker(bind=db_engine, autocommit=False, autoflush=False)
 moysklad_client = MoySkladClient(token=config.moysklad_token)
+app.include_router(
+    create_web_router(
+        SessionLocal,
+        session_secret=config.web_session_secret,
+        cookie_secure=config.web_session_cookie_secure,
+    )
+)
 
 amo_api = AmoCRMWrapperAsync(
     path=config.amo_config.path_to_env,

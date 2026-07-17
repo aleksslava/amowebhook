@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ order.name }} · Производство{% endblock %}
+{% block content %}
+<a class="back-link" href="/cabinet/orders{% if current_user.is_admin and order.user_id %}?user_id={{ order.user_id }}{% endif %}">← К списку заказов</a>
+<header class="page-heading order-heading">
+    <div>
+        <p class="eyebrow">Заказ на производство</p>
+        <h1>{{ order.name }}</h1>
+        <p class="status-line"><span class="status-dot"></span>{{ order.state_name or 'Без статуса' }}</p>
+    </div>
+    <div class="order-id">ID МоегоСклада<br><code>{{ order.moysklad_id }}</code></div>
+</header>
+
+<section class="detail-section" aria-labelledby="order-data-heading">
+    <h2 id="order-data-heading">Данные заказа</h2>
+    <dl class="detail-grid">
+        <div><dt>Исполнитель</dt><dd>{{ order.user.name if order.user else (order.performer_name or 'Не назначен') }}</dd></div>
+        <div><dt>Дата заказа</dt><dd>{{ order.moment|datetime }}</dd></div>
+        <div><dt>План производства</dt><dd>{{ order.delivery_planned_moment|datetime }}</dd></div>
+        <div><dt>Объём производства</dt><dd>{{ order.production_quantity|number }}</dd></div>
+        <div><dt>Код</dt><dd>{{ order.code or '—' }}</dd></div>
+        <div><dt>Внешний код</dt><dd>{{ order.external_code or '—' }}</dd></div>
+        <div><dt>Проведён</dt><dd>{{ 'Да' if order.applicable else ('Нет' if order.applicable is not none else '—') }}</dd></div>
+        <div><dt>Создан в МоемСкладе</dt><dd>{{ order.moysklad_created_at|datetime }}</dd></div>
+        <div><dt>Изменён в МоемСкладе</dt><dd>{{ order.moysklad_updated_at|datetime }}</dd></div>
+        <div><dt>Последняя синхронизация</dt><dd>{{ order.synced_at|datetime }}</dd></div>
+    </dl>
+    {% if order.description %}
+    <div class="description"><span>Описание</span><p>{{ order.description }}</p></div>
+    {% endif %}
+</section>
+
+<section class="detail-section" aria-labelledby="items-heading">
+    <div class="section-heading">
+        <h2 id="items-heading">Позиции заказа</h2>
+        <span>{{ order.items|length }}</span>
+    </div>
+    {% if order.items %}
+    <div class="table-scroll">
+        <table class="data-table item-table">
+            <thead><tr><th>Наименование</th><th>Код</th><th>Тип</th><th class="numeric">Количество</th><th class="numeric">Резерв</th></tr></thead>
+            <tbody>
+            {% for item in order.items %}
+            <tr>
+                <td data-label="Наименование">{{ item.assortment_name or 'Без наименования' }}</td>
+                <td data-label="Код">{{ item.assortment_code or '—' }}</td>
+                <td data-label="Тип">{{ item.assortment_type or '—' }}</td>
+                <td data-label="Количество" class="numeric">{{ item.quantity|number }}</td>
+                <td data-label="Резерв" class="numeric">{{ item.reserve|number }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}<p class="muted">В заказе нет позиций.</p>{% endif %}
+</section>
+{% endblock %}
