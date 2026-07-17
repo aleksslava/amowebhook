@@ -232,22 +232,23 @@ def create_web_router(
     def order_list(
         request: Request,
         page: int = Query(1, ge=1),
-        user_id: int | None = Query(None, ge=1),
+        user_id: str | None = Query(None, pattern=r"^(?:|0*[1-9][0-9]*)$"),
     ) -> Response:
         with session_factory() as db:
             auth = require_user(request, db)
             if isinstance(auth, Response):
                 return auth
             current_user, web_session = auth
+            selected_user_id = int(user_id) if user_id else None
 
             conditions = []
             selected_user = None
             if current_user.is_admin:
-                if user_id is not None:
-                    selected_user = db.get(User, user_id)
+                if selected_user_id is not None:
+                    selected_user = db.get(User, selected_user_id)
                     if selected_user is None:
                         raise HTTPException(status_code=404, detail="User not found")
-                    conditions.append(MoySkladOrder.user_id == user_id)
+                    conditions.append(MoySkladOrder.user_id == selected_user_id)
             else:
                 conditions.append(MoySkladOrder.user_id == current_user.id)
 
@@ -286,7 +287,7 @@ def create_web_router(
                     "order_readiness": order_readiness,
                     "users": users,
                     "selected_user": selected_user,
-                    "selected_user_id": user_id,
+                    "selected_user_id": selected_user_id,
                     "page": page,
                     "total": total,
                     "total_pages": max(1, math.ceil(total / PAGE_SIZE)),

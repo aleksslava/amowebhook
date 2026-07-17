@@ -232,6 +232,16 @@ class WebServiceTests(unittest.TestCase):
         self.assertIn("Заказ Алисы", filtered.text)
         self.assertNotIn("Заказ Бориса", filtered.text)
 
+        unfiltered = self.client.get("/cabinet/orders?user_id=")
+        self.assertEqual(unfiltered.status_code, 200)
+        self.assertIn("Заказ Алисы", unfiltered.text)
+        self.assertIn("Заказ Бориса", unfiltered.text)
+        self.assertEqual(
+            self.client.get("/cabinet/orders?user_id=invalid").status_code,
+            422,
+        )
+        self.assertEqual(self.client.get("/cabinet/orders?user_id=0").status_code, 422)
+
     def test_user_saves_partial_actuals_and_order_uses_weighted_readiness(self):
         self.login("Алиса", "alice-password")
         csrf_token = self.session_csrf()
