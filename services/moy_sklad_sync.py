@@ -211,7 +211,16 @@ def _sync_once(
         order.synced_at = datetime.utcnow()
         session.flush()
 
+        actual_quantities: dict[str, Decimal] = {}
         if not created:
+            actual_quantities = dict(
+                session.execute(
+                    select(
+                        OrderItem.moysklad_position_id,
+                        OrderItem.actual_quantity,
+                    ).where(OrderItem.order_id == order.id)
+                ).all()
+            )
             session.execute(delete(OrderItem).where(OrderItem.order_id == order.id))
             session.flush()
 
@@ -254,6 +263,7 @@ def _sync_once(
                         assortment_code if isinstance(assortment_code, str) else None
                     ),
                     quantity=_decimal(position.get("quantity"), required=True),
+                    actual_quantity=actual_quantities.get(position_id, Decimal("0")),
                     reserve=_decimal(position.get("reserve"), required=False),
                     raw_payload=dict(position),
                 )

@@ -12,6 +12,7 @@ from sqlalchemy.pool import StaticPool
 from models import Base, MoySkladOrder, OrderItem, User
 from web_service import create_web_router
 from web_service.auth import hash_password, verify_password
+from web_service.router import calculate_readiness
 
 
 class WebServiceTests(unittest.TestCase):
@@ -66,19 +67,43 @@ class WebServiceTests(unittest.TestCase):
             db.flush()
             self.alice_order_id = alice_order.id
             self.bob_order_id = bob_order.id
-            db.add(
-                OrderItem(
-                    order_id=alice_order.id,
-                    moysklad_position_id="position-alice",
-                    assortment_id="item-alice",
-                    assortment_type="product",
-                    assortment_name="Корпус изделия",
-                    assortment_code="A-01",
-                    quantity=Decimal("2"),
-                    reserve=Decimal("1"),
-                    raw_payload={},
-                )
+            alice_item = OrderItem(
+                order_id=alice_order.id,
+                moysklad_position_id="position-alice",
+                assortment_id="item-alice",
+                assortment_type="product",
+                assortment_name="Корпус изделия",
+                assortment_code="A-01",
+                quantity=Decimal("2"),
+                reserve=Decimal("1"),
+                raw_payload={},
             )
+            alice_second_item = OrderItem(
+                order_id=alice_order.id,
+                moysklad_position_id="position-alice-2",
+                assortment_id="item-alice-2",
+                assortment_type="product",
+                assortment_name="Крепёж",
+                assortment_code="A-02",
+                quantity=Decimal("8"),
+                reserve=Decimal("0"),
+                raw_payload={},
+            )
+            bob_item = OrderItem(
+                order_id=bob_order.id,
+                moysklad_position_id="position-bob",
+                assortment_id="item-bob",
+                assortment_type="product",
+                assortment_name="Изделие Бориса",
+                assortment_code="B-01",
+                quantity=Decimal("4"),
+                reserve=Decimal("0"),
+                raw_payload={},
+            )
+            db.add_all([alice_item, alice_second_item, bob_item])
+            db.flush()
+            self.alice_item_id = alice_item.id
+            self.bob_item_id = bob_item.id
 
     def tearDown(self):
         self.client.close()
@@ -137,6 +162,26 @@ class WebServiceTests(unittest.TestCase):
         self.assertFalse(verify_password("wrong", first))
         self.assertFalse(verify_password("password", "not-a-valid-hash"))
 
+    def test_readiness_calculation_handles_zero_partial_complete_and_overrun(self):
+        zero = calculate_readiness(Decimal("5"), Decimal("0"))
+        partial = calculate_readiness(Decimal("1"), Decimal("2"))
+        complete = calculate_readiness(Decimal("2"), Decimal("2"))
+        overrun = calculate_readiness(Decimal("3"), Decimal("2"))
+
+        self.assertEqual((zero.label, zero.width, zero.complete), ("0%", "0", False))
+        self.assertEqual(
+            (partial.label, partial.width, partial.complete),
+            ("50%", "50", False),
+        )
+        self.assertEqual(
+            (complete.label, complete.width, complete.complete),
+            ("100%", "100", True),
+        )
+        self.assertEqual(
+            (overrun.label, overrun.width, overrun.complete),
+            ("150%", "100", True),
+        )
+
     def test_guest_is_redirected_to_login(self):
         response = self.client.get("/cabinet/orders", follow_redirects=False)
         self.assertEqual(response.status_code, 303)
@@ -149,12 +194,16 @@ class WebServiceTests(unittest.TestCase):
         order_list = self.client.get("/cabinet/orders")
         self.assertEqual(order_list.status_code, 200)
         self.assertNotIn("<th>Исполнитель</th>", order_list.text)
+        self.assertIn("<th>Готовность</th>", order_list.text)
         self.assertIn("Заказ Алисы", order_list.text)
         self.assertNotIn("Заказ Бориса", order_list.text)
 
         detail = self.client.get(f"/cabinet/orders/{self.alice_order_id}")
         self.assertEqual(detail.status_code, 200)
         self.assertIn("Корпус изделия", detail.text)
+        self.assertIn("<th class=\"numeric\">Факт</th>", detail.text)
+        self.assertIn("<th>Готовность</th>", detail.text)
+        self.assertIn("Сохранить", detail.text)
         forbidden = self.client.get(f"/cabinet/orders/{self.bob_order_id}")
         self.assertEqual(forbidden.status_code, 404)
 
@@ -162,6 +211,7 @@ class WebServiceTests(unittest.TestCase):
         self.login("Администратор", "admin-password")
         order_list = self.client.get("/cabinet/orders")
         self.assertIn("<th>Исполнитель</th>", order_list.text)
+        self.assertIn("<th>Готовность</th>", order_list.text)
         self.assertIn("Заказ Алисы", order_list.text)
         self.assertIn("Заказ Бориса", order_list.text)
         self.assertIn("Внешний исполнитель", order_list.text)
@@ -170,6 +220,144 @@ class WebServiceTests(unittest.TestCase):
         filtered = self.client.get(f"/cabinet/orders?user_id={self.alice_id}")
         self.assertIn("Заказ Алисы", filtered.text)
         self.assertNotIn("Заказ Бориса", filtered.text)
+
+    def test_user_saves_partial_actuals_and_order_uses_weighted_readiness(self):
+        self.login("Алиса", "alice-password")
+        csrf_token = self.session_csrf()
+        response = self.client.post(
+            f"/cabinet/orders/{self.alice_order_id}/actuals",
+            data={
+                "position_id": "position-alice",
+                "actual_quantity": "1",
+                "csrf_token": csrf_token,
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(
+            response.headers["location"],
+            f"/cabinet/orders/{self.alice_order_id}?saved=1",
+        )
+        with self.Session() as db:
+            items = {
+                item.moysklad_position_id: item
+                for item in db.scalars(
+                    select(OrderItem).where(OrderItem.order_id == self.alice_order_id)
+                )
+            }
+            self.assertEqual(items["position-alice"].actual_quantity, Decimal("1"))
+            self.assertEqual(items["position-alice-2"].actual_quantity, Decimal("0"))
+
+        detail = self.client.get(f"/cabinet/orders/{self.alice_order_id}?saved=1")
+        self.assertIn("50%", detail.text)
+        self.assertIn("Фактическое выполнение сохранено", detail.text)
+        order_list = self.client.get("/cabinet/orders")
+        self.assertIn("10%", order_list.text)
+
+    def test_admin_can_save_actuals_for_another_users_order(self):
+        self.login("Администратор", "admin-password")
+        csrf_token = self.session_csrf()
+        response = self.client.post(
+            f"/cabinet/orders/{self.bob_order_id}/actuals",
+            data={
+                "position_id": "position-bob",
+                "actual_quantity": "4",
+                "csrf_token": csrf_token,
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303)
+        detail = self.client.get(f"/cabinet/orders/{self.bob_order_id}")
+        self.assertIn("100%", detail.text)
+        self.assertIn("readiness-track complete", detail.text)
+
+    def test_actual_quantity_validation_access_and_stale_position(self):
+        self.login("Алиса", "alice-password")
+        csrf_token = self.session_csrf()
+        url = f"/cabinet/orders/{self.alice_order_id}/actuals"
+        for invalid in ("-1", "1.5", "abc", "1000000000000", "9" * 5000):
+            with self.subTest(invalid=invalid):
+                response = self.client.post(
+                    url,
+                    data={
+                        "position_id": "position-alice",
+                        "actual_quantity": invalid,
+                        "csrf_token": csrf_token,
+                    },
+                )
+                self.assertEqual(response.status_code, 400)
+
+        duplicate = self.client.post(
+            url,
+            data={
+                "position_id": ["position-alice", "position-alice"],
+                "actual_quantity": ["1", "2"],
+                "csrf_token": csrf_token,
+            },
+        )
+        self.assertEqual(duplicate.status_code, 400)
+        mismatched = self.client.post(
+            url,
+            data={
+                "position_id": ["position-alice", "position-alice-2"],
+                "actual_quantity": "1",
+                "csrf_token": csrf_token,
+            },
+        )
+        self.assertEqual(mismatched.status_code, 400)
+        stale = self.client.post(
+            url,
+            data={
+                "position_id": "removed-position",
+                "actual_quantity": "1",
+                "csrf_token": csrf_token,
+            },
+        )
+        self.assertEqual(stale.status_code, 409)
+        invalid_csrf = self.client.post(
+            url,
+            data={
+                "position_id": "position-alice",
+                "actual_quantity": "1",
+                "csrf_token": "invalid",
+            },
+        )
+        self.assertEqual(invalid_csrf.status_code, 400)
+        foreign_order = self.client.post(
+            f"/cabinet/orders/{self.bob_order_id}/actuals",
+            data={
+                "position_id": "position-bob",
+                "actual_quantity": "1",
+                "csrf_token": csrf_token,
+            },
+        )
+        self.assertEqual(foreign_order.status_code, 404)
+        with self.Session() as db:
+            self.assertEqual(
+                db.get(OrderItem, self.alice_item_id).actual_quantity,
+                Decimal("0"),
+            )
+
+        zero = self.client.post(
+            url,
+            data={
+                "position_id": "position-alice",
+                "actual_quantity": "0",
+                "csrf_token": csrf_token,
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(zero.status_code, 303)
+        maximum = self.client.post(
+            url,
+            data={
+                "position_id": "position-alice",
+                "actual_quantity": "999999999999",
+                "csrf_token": csrf_token,
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(maximum.status_code, 303)
 
     def test_regular_user_cannot_open_user_administration(self):
         self.login("Алиса", "alice-password")

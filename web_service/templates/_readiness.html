@@ -1,0 +1,13 @@
+{% macro readiness(value) -%}
+<div class="readiness">
+    <div
+        class="readiness-track{% if value.complete %} complete{% endif %}"
+        role="progressbar"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow="{{ value.width }}"
+        aria-valuetext="{{ value.label }}"
+    ><span style="width: {{ value.width }}%"></span></div>
+    <span class="readiness-value">{{ value.label }}</span>
+</div>
+{%- endmacro %}

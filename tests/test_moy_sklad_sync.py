@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from decimal import Decimal
 from pathlib import Path
 
 from sqlalchemy import create_engine, select
@@ -199,3 +200,38 @@ class MoySkladSyncTests(unittest.TestCase):
         with self.Session() as session:
             self.assertIsNone(session.scalar(select(MoySkladOrder)))
             self.assertIsNone(session.scalar(select(OrderItem)))
+
+    def test_update_preserves_actual_quantity_by_position_id(self):
+        sync_processing_order(
+            self.Session,
+            make_order_payload(updated="2026-07-17 10:00:00.000"),
+            [
+                make_position("position-1", 2, "Removed product"),
+                make_position("position-2", 4, "Existing product"),
+            ],
+        )
+        with self.Session.begin() as session:
+            items = {
+                item.moysklad_position_id: item
+                for item in session.scalars(select(OrderItem))
+            }
+            items["position-1"].actual_quantity = Decimal("2")
+            items["position-2"].actual_quantity = Decimal("3")
+
+        sync_processing_order(
+            self.Session,
+            make_order_payload(updated="2026-07-17 11:00:00.000"),
+            [
+                make_position("position-2", 7, "Updated product"),
+                make_position("position-3", 5, "New product"),
+            ],
+        )
+
+        with self.Session() as session:
+            items = {
+                item.moysklad_position_id: item
+                for item in session.scalars(select(OrderItem))
+            }
+            self.assertEqual(set(items), {"position-2", "position-3"})
+            self.assertEqual(items["position-2"].actual_quantity, Decimal("3"))
+            self.assertEqual(items["position-3"].actual_quantity, Decimal("0"))

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import hmac
 import math
+import re
+from dataclasses import dataclass
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from typing import Callable
 
@@ -29,6 +31,15 @@ from web_service.auth import (
 PACKAGE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
 PAGE_SIZE = 25
+MAX_ACTUAL_QUANTITY = 999_999_999_999
+_INTEGER_PATTERN = re.compile(r"^[0-9]+$")
+
+
+@dataclass(frozen=True)
+class Readiness:
+    label: str
+    width: str
+    complete: bool
 
 
 def _format_datetime(value: datetime | None) -> str:
@@ -38,7 +49,34 @@ def _format_datetime(value: datetime | None) -> str:
 def _format_number(value: Decimal | None) -> str:
     if value is None:
         return "—"
-    return f"{value:f}".rstrip("0").rstrip(".") or "0"
+    formatted = f"{value:f}"
+    return formatted.rstrip("0").rstrip(".") if "." in formatted else formatted
+
+
+def calculate_readiness(actual: Decimal, quantity: Decimal) -> Readiness:
+    if quantity <= 0:
+        percent = Decimal("0")
+    else:
+        percent = actual / quantity * Decimal("100")
+    rounded = percent.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+    width = min(max(percent, Decimal("0")), Decimal("100"))
+    return Readiness(
+        label=f"{_format_number(rounded)}%",
+        width=_format_number(width),
+        complete=percent >= 100,
+    )
+
+
+def calculate_order_readiness(order: MoySkladOrder) -> Readiness:
+    total_actual = sum(
+        (item.actual_quantity for item in order.items),
+        Decimal("0"),
+    )
+    total_quantity = sum(
+        (item.quantity for item in order.items),
+        Decimal("0"),
+    )
+    return calculate_readiness(total_actual, total_quantity)
 
 
 templates.env.filters["datetime"] = _format_datetime
@@ -216,7 +254,10 @@ def create_web_router(
             count_query = select(func.count(MoySkladOrder.id))
             orders_query = (
                 select(MoySkladOrder)
-                .options(joinedload(MoySkladOrder.user))
+                .options(
+                    joinedload(MoySkladOrder.user),
+                    selectinload(MoySkladOrder.items),
+                )
                 .order_by(MoySkladOrder.moment.desc(), MoySkladOrder.id.desc())
                 .offset((page - 1) * PAGE_SIZE)
                 .limit(PAGE_SIZE)
@@ -227,6 +268,9 @@ def create_web_router(
 
             total = db.scalar(count_query) or 0
             orders = list(db.scalars(orders_query))
+            order_readiness = {
+                order.id: calculate_order_readiness(order) for order in orders
+            }
             users = (
                 list(db.scalars(select(User).order_by(User.name)))
                 if current_user.is_admin
@@ -239,6 +283,7 @@ def create_web_router(
                     "current_user": current_user,
                     "csrf_token": web_session.csrf_token,
                     "orders": orders,
+                    "order_readiness": order_readiness,
                     "users": users,
                     "selected_user": selected_user,
                     "selected_user_id": user_id,
@@ -268,6 +313,10 @@ def create_web_router(
             ):
                 raise HTTPException(status_code=404, detail="Order not found")
             order.items.sort(key=lambda item: (item.assortment_name or "", item.id))
+            item_readiness = {
+                item.id: calculate_readiness(item.actual_quantity, item.quantity)
+                for item in order.items
+            }
             return template(
                 request,
                 "order_detail.html",
@@ -275,8 +324,78 @@ def create_web_router(
                     "current_user": current_user,
                     "csrf_token": web_session.csrf_token,
                     "order": order,
+                    "item_readiness": item_readiness,
+                    "saved": request.query_params.get("saved") == "1",
                 },
             )
+
+    @router.post("/orders/{order_id}/actuals", include_in_schema=False)
+    def save_actual_quantities(
+        request: Request,
+        order_id: int,
+        position_id: list[str] = Form([]),
+        actual_quantity: list[str] = Form([]),
+        csrf_token: str = Form(...),
+    ) -> Response:
+        with session_factory() as db:
+            auth = require_user(request, db)
+            if isinstance(auth, Response):
+                return auth
+            current_user, web_session = auth
+            order = db.get(MoySkladOrder, order_id)
+            if order is None or (
+                not current_user.is_admin and order.user_id != current_user.id
+            ):
+                raise HTTPException(status_code=404, detail="Order not found")
+            require_csrf(web_session, csrf_token)
+
+            if not position_id or len(position_id) != len(actual_quantity):
+                raise HTTPException(status_code=400, detail="Invalid item values")
+            if len(set(position_id)) != len(position_id):
+                raise HTTPException(status_code=400, detail="Duplicate position id")
+
+            parsed_values: dict[str, Decimal] = {}
+            for source_id, value in zip(position_id, actual_quantity):
+                if not _INTEGER_PATTERN.fullmatch(value):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Actual quantity must be a non-negative integer",
+                    )
+                normalized = value.lstrip("0") or "0"
+                if len(normalized) > 12:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Actual quantity is too large",
+                    )
+                parsed = int(normalized)
+                if parsed > MAX_ACTUAL_QUANTITY:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Actual quantity is too large",
+                    )
+                parsed_values[source_id] = Decimal(parsed)
+
+            items = list(
+                db.scalars(
+                    select(OrderItem).where(
+                        OrderItem.order_id == order.id,
+                        OrderItem.moysklad_position_id.in_(position_id),
+                    )
+                )
+            )
+            if len(items) != len(position_id):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Order positions changed; reload the page",
+                )
+            for item in items:
+                item.actual_quantity = parsed_values[item.moysklad_position_id]
+            db.commit()
+
+        return RedirectResponse(
+            f"/cabinet/orders/{order_id}?saved=1",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
 
     @router.get("/admin/users", include_in_schema=False)
     def user_list(request: Request) -> Response:

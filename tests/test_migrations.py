@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, inspect, select
+from sqlalchemy import create_engine, inspect, select, text
 
 from models import EducationVisit
 
@@ -65,4 +65,40 @@ class AlembicMigrationTests(unittest.TestCase):
             self.assertIn("orders", inspect(engine).get_table_names())
             user_columns = {column["name"] for column in inspect(engine).get_columns("users")}
             self.assertIn("is_active", user_columns)
+            engine.dispose()
+
+    def test_actual_quantity_defaults_existing_items_to_zero(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database_path = Path(directory) / "existing-items.db"
+            database_url = f"sqlite:///{database_path.as_posix()}"
+            with patch.dict(os.environ, {"DATABASE_URL": database_url}):
+                command.upgrade(self.alembic_config(), "0003_user_active")
+
+            engine = create_engine(database_url)
+            with engine.begin() as connection:
+                connection.execute(
+                    text(
+                        "INSERT INTO order_items "
+                        "(order_id, moysklad_position_id, quantity, raw_payload) "
+                        "VALUES (1, 'legacy-position', 2, '{}')"
+                    )
+                )
+
+            with patch.dict(os.environ, {"DATABASE_URL": database_url}):
+                command.upgrade(self.alembic_config(), "head")
+            with engine.connect() as connection:
+                actual_quantity = connection.scalar(
+                    text(
+                        "SELECT actual_quantity FROM order_items "
+                        "WHERE moysklad_position_id = 'legacy-position'"
+                    )
+                )
+            self.assertEqual(actual_quantity, 0)
+            self.assertIn(
+                "actual_quantity",
+                {
+                    column["name"]
+                    for column in inspect(engine).get_columns("order_items")
+                },
+            )
             engine.dispose()

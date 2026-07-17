@@ -112,6 +112,11 @@ class OrderItem(Base):
     assortment_name: Mapped[str | None] = mapped_column(String(255))
     assortment_code: Mapped[str | None] = mapped_column(String(255))
     quantity: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+    actual_quantity: Mapped[Decimal] = mapped_column(
+        Numeric(18, 6),
+        default=Decimal("0"),
+        server_default="0",
+    )
     reserve: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
     raw_payload: Mapped[dict[str, Any]] = mapped_column(JSON)
 
