@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     JSON,
@@ -82,6 +83,7 @@ class MoySkladOrder(Base):
         default=Decimal("0"),
         server_default="0",
     )
+    last_suborder_number: Mapped[int] = mapped_column(default=0, server_default="0")
     performer_name: Mapped[str | None] = mapped_column(String(255), index=True)
     device_name: Mapped[str | None] = mapped_column(String(255))
     processing_plan_name: Mapped[str | None] = mapped_column(String(255))
@@ -92,6 +94,11 @@ class MoySkladOrder(Base):
 
     user: Mapped[User | None] = relationship(back_populates="orders")
     items: Mapped[list[OrderItem]] = relationship(
+        back_populates="order",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    suborders: Mapped[list[OrderSuborder]] = relationship(
         back_populates="order",
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -128,3 +135,30 @@ class OrderItem(Base):
     raw_payload: Mapped[dict[str, Any]] = mapped_column(JSON)
 
     order: Mapped[MoySkladOrder] = relationship(back_populates="items")
+
+
+class OrderSuborder(Base):
+    __tablename__ = "order_suborders"
+    __table_args__ = (
+        UniqueConstraint(
+            "order_id",
+            "number",
+            name="uq_order_suborders_order_number",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    order_id: Mapped[int] = mapped_column(
+        ForeignKey("orders.id", ondelete="CASCADE"),
+        index=True,
+    )
+    number: Mapped[int] = mapped_column()
+    planned_quantity: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+    actual_quantity: Mapped[Decimal] = mapped_column(
+        Numeric(18, 6),
+        default=Decimal("0"),
+        server_default="0",
+    )
+    planned_date: Mapped[date] = mapped_column(Date)
+
+    order: Mapped[MoySkladOrder] = relationship(back_populates="suborders")

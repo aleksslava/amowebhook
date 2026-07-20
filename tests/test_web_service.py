@@ -1,7 +1,7 @@
 import html
 import re
 import unittest
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from urllib.parse import parse_qs, urlsplit
 
@@ -11,7 +11,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from models import Base, MoySkladOrder, OrderItem, User
+from models import Base, MoySkladOrder, OrderItem, OrderSuborder, User
 from web_service import create_web_router
 from web_service.auth import hash_password, verify_password
 from web_service.router import _order_status_class, calculate_readiness
@@ -666,6 +666,230 @@ class WebServiceTests(unittest.TestCase):
         self.login("Алиса", "alice-password")
         response = self.client.get("/cabinet/admin/users")
         self.assertEqual(response.status_code, 403)
+
+    def test_admin_manages_suborders_and_numbers_are_not_reused(self):
+        self.login("Администратор", "admin-password")
+        csrf_token = self.session_csrf()
+        create_url = f"/cabinet/orders/{self.alice_order_id}/suborders"
+
+        first = self.client.post(
+            create_url,
+            data={
+                "planned_quantity": "3",
+                "actual_quantity": "1",
+                "planned_date": "2026-07-21",
+                "csrf_token": csrf_token,
+            },
+            follow_redirects=False,
+        )
+        second = self.client.post(
+            create_url,
+            data={
+                "planned_quantity": "7",
+                "actual_quantity": "2",
+                "planned_date": "2026-07-22",
+                "csrf_token": csrf_token,
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(first.status_code, 303)
+        self.assertEqual(second.status_code, 303)
+
+        with self.Session() as db:
+            suborders = list(
+                db.scalars(
+                    select(OrderSuborder)
+                    .where(OrderSuborder.order_id == self.alice_order_id)
+                    .order_by(OrderSuborder.number)
+                )
+            )
+            self.assertEqual([item.number for item in suborders], [1, 2])
+            self.assertEqual(
+                db.get(MoySkladOrder, self.alice_order_id).produced_quantity,
+                Decimal("3"),
+            )
+            first_id, second_id = suborders[0].id, suborders[1].id
+
+        update = self.client.post(
+            f"{create_url}/{first_id}",
+            data={
+                "planned_quantity": "4",
+                "actual_quantity": "5",
+                "planned_date": "2026-07-23",
+                "csrf_token": csrf_token,
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(update.status_code, 303)
+        with self.Session() as db:
+            suborder = db.get(OrderSuborder, first_id)
+            self.assertEqual(suborder.planned_quantity, Decimal("4"))
+            self.assertEqual(suborder.actual_quantity, Decimal("5"))
+            self.assertEqual(suborder.planned_date, date(2026, 7, 23))
+            self.assertEqual(
+                db.get(MoySkladOrder, self.alice_order_id).produced_quantity,
+                Decimal("7"),
+            )
+
+        for suborder_id in (second_id, first_id):
+            deleted = self.client.post(
+                f"{create_url}/{suborder_id}/delete",
+                data={"csrf_token": csrf_token},
+                follow_redirects=False,
+            )
+            self.assertEqual(deleted.status_code, 303)
+        with self.Session() as db:
+            order = db.get(MoySkladOrder, self.alice_order_id)
+            self.assertEqual(order.produced_quantity, Decimal("5"))
+            self.assertEqual(order.last_suborder_number, 2)
+
+        third = self.client.post(
+            create_url,
+            data={
+                "planned_quantity": "1",
+                "actual_quantity": "0",
+                "planned_date": "2026-07-24",
+                "csrf_token": csrf_token,
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(third.status_code, 303)
+        with self.Session() as db:
+            suborder = db.scalar(
+                select(OrderSuborder).where(
+                    OrderSuborder.order_id == self.alice_order_id
+                )
+            )
+            self.assertEqual(suborder.number, 3)
+            self.assertEqual(
+                db.get(MoySkladOrder, self.alice_order_id).produced_quantity,
+                Decimal("0"),
+            )
+
+    def test_assigned_user_updates_only_suborder_actual(self):
+        with self.Session.begin() as db:
+            order = db.get(MoySkladOrder, self.alice_order_id)
+            order.last_suborder_number = 1
+            order.produced_quantity = Decimal("1")
+            suborder = OrderSuborder(
+                order_id=order.id,
+                number=1,
+                planned_quantity=Decimal("3"),
+                actual_quantity=Decimal("1"),
+                planned_date=date(2026, 7, 25),
+            )
+            db.add(suborder)
+            db.flush()
+            suborder_id = suborder.id
+
+        self.login("Алиса", "alice-password")
+        csrf_token = self.session_csrf()
+        detail = self.client.get(f"/cabinet/orders/{self.alice_order_id}")
+        self.assertIn("Подзаказы", detail.text)
+        self.assertIn("25.07.2026", detail.text)
+        self.assertNotIn(
+            f'action="/cabinet/orders/{self.alice_order_id}/suborders"',
+            detail.text,
+        )
+
+        actual = self.client.post(
+            f"/cabinet/orders/{self.alice_order_id}/suborders/{suborder_id}/actual",
+            data={"actual_quantity": "4", "csrf_token": csrf_token},
+            follow_redirects=False,
+        )
+        self.assertEqual(actual.status_code, 303)
+        with self.Session() as db:
+            saved = db.get(OrderSuborder, suborder_id)
+            self.assertEqual(saved.actual_quantity, Decimal("4"))
+            self.assertEqual(saved.planned_quantity, Decimal("3"))
+            self.assertEqual(
+                db.get(MoySkladOrder, self.alice_order_id).produced_quantity,
+                Decimal("4"),
+            )
+
+        admin_update = self.client.post(
+            f"/cabinet/orders/{self.alice_order_id}/suborders/{suborder_id}",
+            data={
+                "planned_quantity": "9",
+                "actual_quantity": "9",
+                "planned_date": "2026-08-01",
+                "csrf_token": csrf_token,
+            },
+        )
+        create = self.client.post(
+            f"/cabinet/orders/{self.alice_order_id}/suborders",
+            data={
+                "planned_quantity": "1",
+                "actual_quantity": "0",
+                "planned_date": "2026-08-01",
+                "csrf_token": csrf_token,
+            },
+        )
+        delete = self.client.post(
+            f"/cabinet/orders/{self.alice_order_id}/suborders/{suborder_id}/delete",
+            data={"csrf_token": csrf_token},
+        )
+        self.assertEqual(admin_update.status_code, 403)
+        self.assertEqual(create.status_code, 403)
+        self.assertEqual(delete.status_code, 403)
+
+    def test_suborder_validation_access_and_produced_quantity_is_derived(self):
+        self.login("Администратор", "admin-password")
+        csrf_token = self.session_csrf()
+        create_url = f"/cabinet/orders/{self.alice_order_id}/suborders"
+        valid_data = {
+            "planned_quantity": "2",
+            "actual_quantity": "6",
+            "planned_date": "2026-07-25",
+            "csrf_token": csrf_token,
+        }
+        for field, invalid, status_code in (
+            ("planned_quantity", "-1", 400),
+            ("actual_quantity", "1.5", 400),
+            ("planned_date", "", 422),
+            ("planned_date", "2026-02-30", 422),
+            ("csrf_token", "invalid", 400),
+        ):
+            with self.subTest(field=field, invalid=invalid):
+                data = {**valid_data, field: invalid}
+                self.assertEqual(self.client.post(create_url, data=data).status_code, status_code)
+
+        created = self.client.post(create_url, data=valid_data, follow_redirects=False)
+        self.assertEqual(created.status_code, 303)
+        forged_total = self.client.post(
+            f"/cabinet/orders/{self.alice_order_id}/production",
+            data={
+                "position_id": ["position-alice", "position-alice-2"],
+                "spent_quantity": ["0", "0"],
+                "produced_quantity": "999",
+                "csrf_token": csrf_token,
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(forged_total.status_code, 303)
+        with self.Session() as db:
+            self.assertEqual(
+                db.get(MoySkladOrder, self.alice_order_id).produced_quantity,
+                Decimal("6"),
+            )
+
+        regular_client = TestClient(self.app)
+        try:
+            self.login("Борис", "bob-password", client=regular_client)
+            bob_csrf = self.session_csrf(client=regular_client)
+            with self.Session() as db:
+                suborder_id = db.scalar(
+                    select(OrderSuborder.id).where(
+                        OrderSuborder.order_id == self.alice_order_id
+                    )
+                )
+            foreign = regular_client.post(
+                f"/cabinet/orders/{self.alice_order_id}/suborders/{suborder_id}/actual",
+                data={"actual_quantity": "1", "csrf_token": bob_csrf},
+            )
+            self.assertEqual(foreign.status_code, 404)
+        finally:
+            regular_client.close()
 
     def test_admin_creates_user_with_hashed_password(self):
         self.login("Администратор", "admin-password")

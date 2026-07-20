@@ -17,7 +17,7 @@ from sqlalchemy import case, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from models import MoySkladOrder, OrderItem, User
+from models import MoySkladOrder, OrderItem, OrderSuborder, User
 from web_service.auth import (
     LOGIN_CSRF_COOKIE,
     SESSION_COOKIE,
@@ -68,6 +68,10 @@ class Readiness:
 
 def _format_datetime(value: datetime | None) -> str:
     return value.strftime("%d.%m.%Y %H:%M") if value else "—"
+
+
+def _format_date(value: date | None) -> str:
+    return value.strftime("%d.%m.%Y") if value else "—"
 
 
 def _format_number(value: Decimal | None) -> str:
@@ -156,7 +160,15 @@ def _parse_optional_date(value: str, field_name: str) -> date | None:
         ) from error
 
 
+def _parse_required_date(value: str, field_name: str) -> date:
+    parsed = _parse_optional_date(value, field_name)
+    if parsed is None:
+        raise HTTPException(status_code=422, detail=f"Invalid {field_name}")
+    return parsed
+
+
 templates.env.filters["datetime"] = _format_datetime
+templates.env.filters["date"] = _format_date
 templates.env.filters["number"] = _format_number
 templates.env.filters["order_status_class"] = _order_status_class
 
@@ -212,6 +224,39 @@ def create_web_router(
     def require_csrf(web_session: WebSession, csrf_token: str) -> None:
         if not hmac.compare_digest(web_session.csrf_token, csrf_token):
             raise HTTPException(status_code=400, detail="Invalid CSRF token")
+
+    def accessible_order(
+        db: Session,
+        current_user: User,
+        order_id: int,
+    ) -> MoySkladOrder:
+        order = db.get(MoySkladOrder, order_id)
+        if order is None or (
+            not current_user.is_admin and order.user_id != current_user.id
+        ):
+            raise HTTPException(status_code=404, detail="Order not found")
+        return order
+
+    def admin_order(db: Session, current_user: User, order_id: int) -> MoySkladOrder:
+        if not current_user.is_admin:
+            raise HTTPException(
+                status_code=403,
+                detail="Administrator access required",
+            )
+        order = db.get(MoySkladOrder, order_id)
+        if order is None:
+            raise HTTPException(status_code=404, detail="Order not found")
+        return order
+
+    def sync_suborder_actuals(db: Session, order: MoySkladOrder) -> None:
+        count, total = db.execute(
+            select(
+                func.count(OrderSuborder.id),
+                func.coalesce(func.sum(OrderSuborder.actual_quantity), 0),
+            ).where(OrderSuborder.order_id == order.id)
+        ).one()
+        if count:
+            order.produced_quantity = total
 
     @router.get("/assets/app.css", include_in_schema=False)
     def stylesheet() -> FileResponse:
@@ -608,6 +653,7 @@ def create_web_router(
                 .options(
                     joinedload(MoySkladOrder.user),
                     selectinload(MoySkladOrder.items),
+                    selectinload(MoySkladOrder.suborders),
                 )
             )
             if order is None or (
@@ -615,6 +661,7 @@ def create_web_router(
             ):
                 raise HTTPException(status_code=404, detail="Order not found")
             order.items.sort(key=lambda item: (item.assortment_name or "", item.id))
+            order.suborders.sort(key=lambda suborder: suborder.number)
             spent_limits = {
                 item.id: _spent_limit(item.quantity) for item in order.items
             }
@@ -626,7 +673,27 @@ def create_web_router(
                     "csrf_token": web_session.csrf_token,
                     "order": order,
                     "spent_limits": spent_limits,
+                    "suborder_planned_total": sum(
+                        (
+                            suborder.planned_quantity
+                            for suborder in order.suborders
+                        ),
+                        Decimal("0"),
+                    ),
+                    "suborder_actual_total": sum(
+                        (
+                            suborder.actual_quantity
+                            for suborder in order.suborders
+                        ),
+                        Decimal("0"),
+                    ),
                     "saved": request.query_params.get("saved") == "1",
+                    "suborder_saved": (
+                        request.query_params.get("suborder_saved") == "1"
+                    ),
+                    "suborder_deleted": (
+                        request.query_params.get("suborder_deleted") == "1"
+                    ),
                 },
             )
 
@@ -644,16 +711,21 @@ def create_web_router(
             if isinstance(auth, Response):
                 return auth
             current_user, web_session = auth
-            order = db.get(MoySkladOrder, order_id)
-            if order is None or (
-                not current_user.is_admin and order.user_id != current_user.id
-            ):
-                raise HTTPException(status_code=404, detail="Order not found")
+            order = accessible_order(db, current_user, order_id)
             require_csrf(web_session, csrf_token)
-            parsed_produced = _parse_local_quantity(
-                produced_quantity,
-                "Produced quantity",
+            has_suborders = bool(
+                db.scalar(
+                    select(func.count(OrderSuborder.id)).where(
+                        OrderSuborder.order_id == order.id
+                    )
+                )
             )
+            parsed_produced = None
+            if not has_suborders:
+                parsed_produced = _parse_local_quantity(
+                    produced_quantity,
+                    "Produced quantity",
+                )
 
             if len(position_id) != len(spent_quantity):
                 raise HTTPException(status_code=400, detail="Invalid item values")
@@ -690,13 +762,188 @@ def create_web_router(
                         detail="Spent quantity exceeds item quantity",
                     )
 
-            order.produced_quantity = parsed_produced
+            if has_suborders:
+                sync_suborder_actuals(db, order)
+            else:
+                order.produced_quantity = parsed_produced
             for item in items:
                 item.spent_quantity = parsed_values[item.moysklad_position_id]
             db.commit()
 
         return RedirectResponse(
             f"/cabinet/orders/{order_id}?saved=1",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    @router.post("/orders/{order_id}/suborders", include_in_schema=False)
+    def create_suborder(
+        request: Request,
+        order_id: int,
+        planned_quantity: str = Form(""),
+        actual_quantity: str = Form(""),
+        planned_date: str = Form(""),
+        csrf_token: str = Form(...),
+    ) -> Response:
+        with session_factory() as db:
+            auth = require_user(request, db)
+            if isinstance(auth, Response):
+                return auth
+            current_user, web_session = auth
+            order = admin_order(db, current_user, order_id)
+            require_csrf(web_session, csrf_token)
+            parsed_planned = _parse_local_quantity(
+                planned_quantity,
+                "Planned quantity",
+            )
+            parsed_actual = _parse_local_quantity(
+                actual_quantity,
+                "Actual quantity",
+            )
+            parsed_date = _parse_required_date(planned_date, "planned date")
+            next_number = order.last_suborder_number + 1
+            order.last_suborder_number = next_number
+            db.add(
+                OrderSuborder(
+                    order_id=order.id,
+                    number=next_number,
+                    planned_quantity=parsed_planned,
+                    actual_quantity=parsed_actual,
+                    planned_date=parsed_date,
+                )
+            )
+            sync_suborder_actuals(db, order)
+            try:
+                db.commit()
+            except IntegrityError as error:
+                db.rollback()
+                raise HTTPException(
+                    status_code=409,
+                    detail="Suborder number changed; reload the page",
+                ) from error
+
+        return RedirectResponse(
+            f"/cabinet/orders/{order_id}?suborder_saved=1",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    @router.post(
+        "/orders/{order_id}/suborders/{suborder_id}",
+        include_in_schema=False,
+    )
+    def update_suborder(
+        request: Request,
+        order_id: int,
+        suborder_id: int,
+        planned_quantity: str = Form(""),
+        actual_quantity: str = Form(""),
+        planned_date: str = Form(""),
+        csrf_token: str = Form(...),
+    ) -> Response:
+        with session_factory() as db:
+            auth = require_user(request, db)
+            if isinstance(auth, Response):
+                return auth
+            current_user, web_session = auth
+            order = admin_order(db, current_user, order_id)
+            require_csrf(web_session, csrf_token)
+            suborder = db.scalar(
+                select(OrderSuborder).where(
+                    OrderSuborder.id == suborder_id,
+                    OrderSuborder.order_id == order.id,
+                )
+            )
+            if suborder is None:
+                raise HTTPException(status_code=404, detail="Suborder not found")
+            suborder.planned_quantity = _parse_local_quantity(
+                planned_quantity,
+                "Planned quantity",
+            )
+            suborder.actual_quantity = _parse_local_quantity(
+                actual_quantity,
+                "Actual quantity",
+            )
+            suborder.planned_date = _parse_required_date(
+                planned_date,
+                "planned date",
+            )
+            sync_suborder_actuals(db, order)
+            db.commit()
+
+        return RedirectResponse(
+            f"/cabinet/orders/{order_id}?suborder_saved=1",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    @router.post(
+        "/orders/{order_id}/suborders/{suborder_id}/actual",
+        include_in_schema=False,
+    )
+    def update_suborder_actual(
+        request: Request,
+        order_id: int,
+        suborder_id: int,
+        actual_quantity: str = Form(""),
+        csrf_token: str = Form(...),
+    ) -> Response:
+        with session_factory() as db:
+            auth = require_user(request, db)
+            if isinstance(auth, Response):
+                return auth
+            current_user, web_session = auth
+            order = accessible_order(db, current_user, order_id)
+            require_csrf(web_session, csrf_token)
+            suborder = db.scalar(
+                select(OrderSuborder).where(
+                    OrderSuborder.id == suborder_id,
+                    OrderSuborder.order_id == order.id,
+                )
+            )
+            if suborder is None:
+                raise HTTPException(status_code=404, detail="Suborder not found")
+            suborder.actual_quantity = _parse_local_quantity(
+                actual_quantity,
+                "Actual quantity",
+            )
+            sync_suborder_actuals(db, order)
+            db.commit()
+
+        return RedirectResponse(
+            f"/cabinet/orders/{order_id}?suborder_saved=1",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    @router.post(
+        "/orders/{order_id}/suborders/{suborder_id}/delete",
+        include_in_schema=False,
+    )
+    def delete_suborder(
+        request: Request,
+        order_id: int,
+        suborder_id: int,
+        csrf_token: str = Form(...),
+    ) -> Response:
+        with session_factory() as db:
+            auth = require_user(request, db)
+            if isinstance(auth, Response):
+                return auth
+            current_user, web_session = auth
+            order = admin_order(db, current_user, order_id)
+            require_csrf(web_session, csrf_token)
+            suborder = db.scalar(
+                select(OrderSuborder).where(
+                    OrderSuborder.id == suborder_id,
+                    OrderSuborder.order_id == order.id,
+                )
+            )
+            if suborder is None:
+                raise HTTPException(status_code=404, detail="Suborder not found")
+            db.delete(suborder)
+            db.flush()
+            sync_suborder_actuals(db, order)
+            db.commit()
+
+        return RedirectResponse(
+            f"/cabinet/orders/{order_id}?suborder_deleted=1",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 

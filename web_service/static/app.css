@@ -110,8 +110,17 @@ select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
 .description p { margin: 7px 0 0; white-space: pre-wrap; line-height: 1.6; }
 .section-heading { display: flex; align-items: baseline; gap: 10px; }
 .section-heading span { color: var(--muted); }
+.suborder-heading { flex-wrap: wrap; }
+.suborder-summary { margin-left: auto; font-variant-numeric: tabular-nums; }
 .quantity-cell { min-width: 112px; }
 .quantity-input { width: 100px; padding: 9px 10px; text-align: right; font-variant-numeric: tabular-nums; }
+.date-input { min-width: 150px; padding: 9px 10px; font-variant-numeric: tabular-nums; }
+.suborder-actions { display: flex; align-items: center; justify-content: flex-end; gap: 14px; }
+.suborder-actions form { margin: 0; }
+.compact-button { min-height: 38px; padding: 8px 12px; }
+.suborder-create-form { display: flex; align-items: end; flex-wrap: wrap; gap: 16px 20px; padding-top: 24px; }
+.suborder-create-form label { display: grid; gap: 7px; color: var(--muted); font-size: 12px; }
+.suborder-create-form input { color: var(--ink); font-size: 14px; }
 .save-row { display: flex; justify-content: flex-end; padding-top: 22px; }
 .readiness { min-width: 132px; display: grid; grid-template-columns: minmax(72px, 1fr) 44px; align-items: center; gap: 9px; }
 .readiness-track { height: 7px; overflow: hidden; border-radius: 999px; background: #dfe2e5; }
@@ -175,6 +184,10 @@ select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
     .data-table td::before { content: attr(data-label); color: var(--muted); font-size: 12px; }
     .data-table td.actions { display: block; padding-top: 14px; }
     .row-actions { justify-content: flex-start; }
+    .suborder-summary { width: 100%; margin-left: 0; }
+    .suborder-actions { justify-content: flex-start; }
+    .suborder-create-form { align-items: stretch; flex-direction: column; }
+    .suborder-create-form .quantity-input, .suborder-create-form .date-input { width: 100%; }
     .detail-grid { grid-template-columns: 1fr; gap: 21px; }
     .order-heading { flex-direction: column; }
     .order-id { text-align: left; }

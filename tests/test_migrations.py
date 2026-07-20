@@ -37,8 +37,31 @@ class AlembicMigrationTests(unittest.TestCase):
                     "users",
                     "orders",
                     "order_items",
+                    "order_suborders",
                 },
             )
+            order_columns = {
+                column["name"] for column in inspect(engine).get_columns("orders")
+            }
+            self.assertIn("last_suborder_number", order_columns)
+            suborder_columns = {
+                column["name"]
+                for column in inspect(engine).get_columns("order_suborders")
+            }
+            self.assertEqual(
+                suborder_columns,
+                {
+                    "id",
+                    "order_id",
+                    "number",
+                    "planned_quantity",
+                    "actual_quantity",
+                    "planned_date",
+                },
+            )
+            foreign_keys = inspect(engine).get_foreign_keys("order_suborders")
+            self.assertEqual(foreign_keys[0]["referred_table"], "orders")
+            self.assertEqual(foreign_keys[0]["options"].get("ondelete"), "CASCADE")
             engine.dispose()
 
     def test_production_progress_normalizes_existing_values(self):
