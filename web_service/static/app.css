@@ -68,6 +68,8 @@ select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
 .data-table tbody tr { transition: background-color .16s ease, transform .16s ease; }
 .data-table tbody tr:hover { background: rgb(255 255 255 / 70%); }
 .data-table .numeric { text-align: right; font-variant-numeric: tabular-nums; }
+.orders-table th { padding-right: 10px; padding-left: 10px; }
+.orders-table td { padding-right: 10px; padding-left: 10px; }
 .sort-link { display: inline-flex; align-items: center; gap: 5px; color: inherit; text-decoration: none; }
 .sort-link:hover, .sort-link.active { color: var(--ink); }
 .sort-indicator { color: var(--accent-dark); font-size: 14px; line-height: 1; }
@@ -140,14 +142,14 @@ select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
 .state-off::before { background: #9ba2aa; }
 .actions { text-align: right; }
 .actions form { margin: 0; }
-.order-actions { min-width: 180px; }
+.order-actions { width: 150px; min-width: 150px; }
 .action-unavailable { color: var(--muted); font-size: 12px; border-bottom: 1px dotted currentColor; }
-.split-control summary { display: inline-flex; justify-content: center; align-items: center; min-height: 38px; padding: 8px 12px; border: 1px solid #b8bdc2; border-radius: 7px; color: var(--ink); background: transparent; font-weight: 700; list-style: none; cursor: pointer; }
+.split-control summary { display: inline-flex; justify-content: center; align-items: center; min-height: 38px; padding: 8px 9px; border: 1px solid #b8bdc2; border-radius: 7px; color: var(--ink); background: transparent; font-size: 13px; font-weight: 700; line-height: 1.2; white-space: nowrap; list-style: none; cursor: pointer; }
 .split-control summary::-webkit-details-marker { display: none; }
 .split-control[open] summary { border-color: var(--ink); background: rgb(255 255 255 / 65%); }
 .split-control form { display: grid; justify-items: end; gap: 10px; margin-top: 12px; }
 .split-control label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; text-align: left; }
-.split-control .quantity-input { width: 128px; }
+.split-control .quantity-input { width: 112px; }
 .order-row--expanded td { border-bottom-color: #c4c9cf; }
 .stage-row { background: rgb(255 255 255 / 42%); }
 .stage-row td { padding-top: 13px; padding-bottom: 13px; }
@@ -180,6 +182,13 @@ select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
 @keyframes enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes login-enter { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
 
+@media (min-width: 641px) {
+    .orders-table th.actions, .orders-table td.actions { position: sticky; right: 0; z-index: 2; background: var(--paper); box-shadow: -1px 0 0 var(--line); }
+    .orders-table th.actions { z-index: 3; }
+    .orders-table tbody tr:hover td.actions { background: #fbfaf7; }
+    .orders-table .stage-row td.actions { background: #faf9f5; }
+}
+
 @media (max-width: 860px) {
     .topbar { min-height: auto; padding: 14px 5vw; grid-template-columns: 1fr auto; gap: 12px; }
     .main-nav { grid-row: 2; grid-column: 1 / -1; justify-content: center; height: 40px; }
@@ -204,6 +213,7 @@ select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
     .data-table td { display: grid; grid-template-columns: minmax(105px, 38%) 1fr; gap: 12px; padding: 7px 0; border: 0; text-align: left !important; }
     .data-table td::before { content: attr(data-label); color: var(--muted); font-size: 12px; }
     .data-table td.actions { display: block; padding-top: 14px; }
+    .orders-table .order-actions { width: auto; min-width: 0; }
     .order-title-cell { align-items: flex-start; }
     .stage-row { margin-left: 16px; padding-left: 14px !important; border-left: 3px solid #e5a33e; }
     .stage-row .stage-empty { display: none; }
@@ -211,6 +221,7 @@ select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
     .stage-readiness-edit { align-items: stretch; flex-direction: column; min-width: 0; }
     .stage-readiness-edit .quantity-input, .stage-row .date-input, .stage-row .quantity-input { width: 100%; }
     .split-control form { justify-items: stretch; }
+    .split-control summary { width: 100%; }
     .split-control .quantity-input { width: 100%; }
     .row-actions { justify-content: flex-start; }
     .suborder-summary { width: 100%; margin-left: 0; }
