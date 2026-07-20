@@ -90,7 +90,7 @@
             {% if current_user.is_admin %}{{ sortable_header('performer', 'Исполнитель') }}{% endif %}
             {{ sortable_header('state', 'Статус') }}
             {{ sortable_header('moment', 'Дата создания') }}
-            {{ sortable_header('next_stage', 'Дата следующего этапа') }}
+            {{ sortable_header('next_stage', 'План. дата производства') }}
             {{ sortable_header('quantity', 'Объём', true) }}
             {{ sortable_header('readiness', 'Готовность') }}
             <th class="actions">Действия</th>
@@ -117,7 +117,7 @@
             {% endif %}
             <td data-label="Статус"><span class="order-status order-status--{{ order.state_name|order_status_class }}"><span class="status-dot"></span>{{ order.state_name or 'Без статуса' }}</span></td>
             <td data-label="Дата создания">{{ order.moment|datetime }}</td>
-            <td data-label="Дата следующего этапа">{{ next_stage_dates.get(order.id)|date }}</td>
+            <td data-label="План. дата производства">{{ next_stage_dates.get(order.id)|date }}</td>
             <td data-label="Объём" class="numeric">{{ order.production_quantity|number }}</td>
             <td data-label="Готовность">{{ readiness(order_readiness[order.id]) }}</td>
             <td data-label="Действия" class="actions order-actions">
@@ -151,7 +151,7 @@
                 {% if current_user.is_admin %}<td data-label="Исполнитель" class="stage-empty">—</td>{% endif %}
                 <td data-label="Статус" class="stage-empty">—</td>
                 <td data-label="Дата создания" class="stage-empty">—</td>
-                <td data-label="Дата следующего этапа">
+                <td data-label="План. дата производства">
                     {% if current_user.is_admin %}
                     <input class="date-input stage-input" type="date" name="planned_date" value="{{ suborder.planned_date.isoformat() }}" required aria-label="Плановая дата этапа {{ suborder.number }}" form="{{ stage_form_id }}">
                     {% else %}{{ suborder.planned_date|date }}{% endif %}

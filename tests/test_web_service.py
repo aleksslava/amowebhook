@@ -546,7 +546,7 @@ class WebServiceTests(unittest.TestCase):
         self.login("Алиса", "alice-password")
         order_list = self.client.get("/cabinet/orders")
         self.assertIn("Дата создания", order_list.text)
-        self.assertIn("Дата следующего этапа", order_list.text)
+        self.assertIn("План. дата производства", order_list.text)
         self.assertNotIn("План производства</th>", order_list.text)
         self.assertIn("21.07.2026", order_list.text)
         self.assertIn(f"expanded={self.alice_order_id}", order_list.text)
@@ -577,7 +577,7 @@ class WebServiceTests(unittest.TestCase):
         )
         self.assertEqual(completed.status_code, 303)
         refreshed = self.client.get("/cabinet/orders")
-        self.assertIn('data-label="Дата следующего этапа">—</td>', refreshed.text)
+        self.assertIn('data-label="План. дата производства">—</td>', refreshed.text)
 
     def test_admin_edits_stage_plan_date_and_actual_from_order_list(self):
         with self.Session.begin() as db:
@@ -1089,7 +1089,7 @@ class WebServiceTests(unittest.TestCase):
         self.login("Алиса", "alice-password")
         csrf_token = self.session_csrf()
         detail = self.client.get(f"/cabinet/orders/{self.alice_order_id}")
-        self.assertIn("Подзаказы", detail.text)
+        self.assertIn("Этапы", detail.text)
         self.assertIn("25.07.2026", detail.text)
         self.assertNotIn(
             f'action="/cabinet/orders/{self.alice_order_id}/suborders"',
