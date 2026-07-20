@@ -34,6 +34,7 @@ templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
 PAGE_SIZE = 25
 MAX_LOCAL_QUANTITY = 999_999_999_999
 _INTEGER_PATTERN = re.compile(r"^[0-9]+$")
+_DATE_PATTERN = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 _NO_STATE_FILTER = "__none__"
 _ORDER_SORT_KEYS = {
     "order",
@@ -138,6 +139,21 @@ def _case_insensitive_contains(column, value: str, dialect_name: str):
             autoescape=True,
         )
     return column.icontains(value, autoescape=True)
+
+
+def _parse_optional_date(value: str, field_name: str) -> date | None:
+    value = value.strip()
+    if not value:
+        return None
+    if not _DATE_PATTERN.fullmatch(value):
+        raise HTTPException(status_code=422, detail=f"Invalid {field_name}")
+    try:
+        return date.fromisoformat(value)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid {field_name}",
+        ) from error
 
 
 templates.env.filters["datetime"] = _format_datetime
@@ -299,10 +315,10 @@ def create_web_router(
         device: str = Query("", max_length=255),
         processing_plan: str = Query("", max_length=255),
         state: str = Query("", max_length=255),
-        moment_from: date | None = Query(None),
-        moment_to: date | None = Query(None),
-        delivery_from: date | None = Query(None),
-        delivery_to: date | None = Query(None),
+        moment_from_value: str = Query("", alias="moment_from", max_length=10),
+        moment_to_value: str = Query("", alias="moment_to", max_length=10),
+        delivery_from_value: str = Query("", alias="delivery_from", max_length=10),
+        delivery_to_value: str = Query("", alias="delivery_to", max_length=10),
         sort: str = Query(
             "moment",
             pattern=(
@@ -312,6 +328,16 @@ def create_web_router(
         ),
         direction: str = Query("desc", pattern=r"^(?:asc|desc)$"),
     ) -> Response:
+        moment_from = _parse_optional_date(moment_from_value, "order start date")
+        moment_to = _parse_optional_date(moment_to_value, "order end date")
+        delivery_from = _parse_optional_date(
+            delivery_from_value,
+            "production start date",
+        )
+        delivery_to = _parse_optional_date(
+            delivery_to_value,
+            "production end date",
+        )
         if (
             moment_from is not None
             and moment_to is not None

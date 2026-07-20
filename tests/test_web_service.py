@@ -342,6 +342,17 @@ class WebServiceTests(unittest.TestCase):
 
     def test_order_filter_and_sort_validation(self):
         self.login("Администратор", "admin-password")
+        browser_form = self.client.get(
+            "/cabinet/orders?moment_from=2026-07-17&moment_to=2026-07-17"
+            "&delivery_from=&delivery_to="
+        )
+        self.assertEqual(browser_form.status_code, 200)
+        self.assertIn("Заказ Алисы", browser_form.text)
+        all_empty = self.client.get(
+            "/cabinet/orders?moment_from=&moment_to=&delivery_from=&delivery_to="
+        )
+        self.assertEqual(all_empty.status_code, 200)
+
         invalid_queries = [
             "sort=unknown",
             "direction=sideways",
