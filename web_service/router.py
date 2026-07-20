@@ -1027,7 +1027,7 @@ def create_web_router(
                 suborders.append(
                     OrderSuborder(
                         order_id=order.id,
-                        number=order.last_suborder_number + offset,
+                        number=offset,
                         planned_quantity=Decimal(planned_value),
                         actual_quantity=Decimal(actual_value),
                         planned_date=planned_date,
@@ -1038,7 +1038,7 @@ def create_web_router(
             if remaining_actual:
                 suborders[-1].actual_quantity += Decimal(remaining_actual)
 
-            order.last_suborder_number += stage_count
+            order.last_suborder_number = stage_count
             db.add_all(suborders)
             try:
                 sync_suborder_actuals(db, order)
@@ -1163,6 +1163,7 @@ def create_web_router(
         request: Request,
         order_id: int,
         suborder_id: int,
+        return_url: str = Form(""),
         csrf_token: str = Form(...),
     ) -> Response:
         with session_factory() as db:
@@ -1185,8 +1186,12 @@ def create_web_router(
             sync_suborder_actuals(db, order)
             db.commit()
 
-        return RedirectResponse(
+        target = _safe_orders_return_url(
+            return_url,
             f"/cabinet/orders/{order_id}?suborder_deleted=1",
+        )
+        return RedirectResponse(
+            target,
             status_code=status.HTTP_303_SEE_OTHER,
         )
 

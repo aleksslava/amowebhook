@@ -176,7 +176,16 @@
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <input type="hidden" name="return_url" value="{{ expanded_return_url }}">
                     </form>
-                    <button class="secondary-button compact-button" type="submit" form="{{ stage_form_id }}">Сохранить</button>
+                    <div class="stage-row-actions">
+                        <button class="secondary-button compact-button" type="submit" form="{{ stage_form_id }}">Сохранить</button>
+                        {% if current_user.is_admin %}
+                        <form method="post" action="/cabinet/orders/{{ order.id }}/suborders/{{ suborder.id }}/delete" onsubmit="return confirm('Удалить этап {{ suborder.number }}?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <input type="hidden" name="return_url" value="{{ expanded_return_url }}">
+                            <button class="stage-delete-button" type="submit" aria-label="Удалить этап {{ suborder.number }}" title="Удалить этап {{ suborder.number }}"><span aria-hidden="true">×</span></button>
+                        </form>
+                        {% endif %}
+                    </div>
                 </td>
             </tr>
             {% endfor %}

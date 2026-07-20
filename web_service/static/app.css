@@ -159,6 +159,10 @@ select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
 .stage-input { background: #fff; }
 .stage-readiness-edit { display: flex; align-items: center; gap: 12px; min-width: 245px; }
 .stage-readiness-edit .readiness { flex: 1; }
+.stage-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.stage-delete-button { width: 34px; height: 34px; display: inline-grid; place-items: center; flex: 0 0 34px; padding: 0; border: 1px solid transparent; border-radius: 50%; color: var(--danger); background: transparent; font-size: 23px; line-height: 1; transition: border-color .15s ease, background .15s ease; }
+.stage-delete-button:hover { border-color: #f2b8b5; background: #fef3f2; }
+.stage-delete-button:focus-visible { border-color: var(--danger); outline: 3px solid rgb(180 35 24 / 14%); }
 .row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 16px; white-space: nowrap; }
 .danger-link { border: 0; color: var(--danger); background: none; text-decoration: underline; text-underline-offset: 3px; }
 
@@ -220,6 +224,7 @@ select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
     .stage-label { padding-left: 0; }
     .stage-readiness-edit { align-items: stretch; flex-direction: column; min-width: 0; }
     .stage-readiness-edit .quantity-input, .stage-row .date-input, .stage-row .quantity-input { width: 100%; }
+    .stage-row-actions { justify-content: flex-start; }
     .split-control form { justify-items: stretch; }
     .split-control summary { width: 100%; }
     .split-control .quantity-input { width: 100%; }

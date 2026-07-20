@@ -560,6 +560,7 @@ class WebServiceTests(unittest.TestCase):
         self.assertIn("100%", expanded.text)
         self.assertIn("33.3%", expanded.text)
         self.assertNotIn('name="planned_quantity" value="2"', expanded.text)
+        self.assertNotIn("Удалить этап 1", expanded.text)
         self.assertIn(
             f'action="/cabinet/orders/{self.alice_order_id}/suborders/1/actual"',
             expanded.text,
@@ -626,12 +627,27 @@ class WebServiceTests(unittest.TestCase):
         refreshed = self.client.get(expanded_url)
         self.assertIn("24.07.2026", refreshed.text)
         self.assertIn("40%", refreshed.text)
+        self.assertIn('aria-label="Удалить этап 1"', refreshed.text)
+
+        deleted = self.client.post(
+            f"/cabinet/orders/{self.alice_order_id}/suborders/1/delete",
+            data={
+                "return_url": expanded_url,
+                "csrf_token": self.session_csrf(),
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(deleted.status_code, 303)
+        self.assertEqual(deleted.headers["location"], expanded_url)
+        with self.Session() as db:
+            self.assertIsNone(db.get(OrderSuborder, 1))
 
     def test_admin_splits_order_into_stages_and_preserves_actual(self):
         with self.Session.begin() as db:
             order = db.get(MoySkladOrder, self.alice_order_id)
             order.production_quantity = Decimal("10")
             order.produced_quantity = Decimal("5")
+            order.last_suborder_number = 1
 
         self.login("Администратор", "admin-password")
         csrf_token = self.session_csrf()
@@ -663,6 +679,10 @@ class WebServiceTests(unittest.TestCase):
             self.assertEqual(
                 [item.planned_quantity for item in suborders],
                 [Decimal("3"), Decimal("3"), Decimal("3"), Decimal("1")],
+            )
+            self.assertEqual(
+                [item.number for item in suborders],
+                [1, 2, 3, 4],
             )
             self.assertEqual(
                 [item.actual_quantity for item in suborders],
