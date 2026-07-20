@@ -307,7 +307,10 @@ class MoySkladClientTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(order["id"], "order-id")
         self.assertEqual(len(positions), 101)
-        self.assertEqual(seen_queries[0][1]["expand"], "state")
+        self.assertEqual(
+            seen_queries[0][1]["expand"],
+            "state,processingPlan",
+        )
         self.assertEqual(seen_queries[1][1]["expand"], "assortment")
         self.assertEqual(seen_queries[1][1]["limit"], "100")
         self.assertEqual(seen_queries[2][1]["offset"], "100")

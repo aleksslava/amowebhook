@@ -104,6 +104,14 @@ def extract_device_name(payload: Mapping[str, Any]) -> str | None:
     return _extract_attribute_name(payload, "Устройство")
 
 
+def extract_processing_plan_name(payload: Mapping[str, Any]) -> str | None:
+    processing_plan = payload.get("processingPlan")
+    if not isinstance(processing_plan, Mapping):
+        return None
+    name = processing_plan.get("name")
+    return name if isinstance(name, str) and name else None
+
+
 def _parse_datetime(value: Any) -> datetime | None:
     if value is None:
         return None
@@ -162,6 +170,7 @@ def _sync_once(
     source_updated_at = _parse_datetime(order_payload.get("updated"))
     performer_name = extract_performer_name(order_payload)
     device_name = extract_device_name(order_payload)
+    processing_plan_name = extract_processing_plan_name(order_payload)
 
     with session_factory() as session, session.begin():
         order = session.scalar(
@@ -221,6 +230,7 @@ def _sync_once(
         )
         order.performer_name = performer_name
         order.device_name = device_name
+        order.processing_plan_name = processing_plan_name
         order.state_id = _entity_id(state)
         order.state_name = state_name if isinstance(state_name, str) else None
         order.raw_payload = dict(order_payload)

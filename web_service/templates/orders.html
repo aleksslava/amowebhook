@@ -29,6 +29,7 @@
         <tr>
             <th>Заказ</th>
             <th>Устройство</th>
+            <th>Технологическая карта</th>
             {% if current_user.is_admin %}<th>Исполнитель</th>{% endif %}
             <th>Статус</th>
             <th>Дата заказа</th>
@@ -45,6 +46,7 @@
                 {% if order.code %}<span class="cell-note">Код {{ order.code }}</span>{% endif %}
             </td>
             <td data-label="Устройство">{{ order.device_name or '—' }}</td>
+            <td data-label="Технологическая карта">{{ order.processing_plan_name or '—' }}</td>
             {% if current_user.is_admin %}
             <td data-label="Исполнитель">{{ order.user.name if order.user else (order.performer_name or 'Не назначен') }}</td>
             {% endif %}

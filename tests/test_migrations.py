@@ -228,3 +228,45 @@ class AlembicMigrationTests(unittest.TestCase):
             }
             self.assertNotIn("device_name", columns)
             engine.dispose()
+
+    def test_processing_plan_name_preserves_existing_orders(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database_path = Path(directory) / "processing-plan.db"
+            database_url = f"sqlite:///{database_path.as_posix()}"
+            with patch.dict(os.environ, {"DATABASE_URL": database_url}):
+                command.upgrade(self.alembic_config(), "0006_production_progress")
+
+            engine = create_engine(database_url)
+            with engine.begin() as connection:
+                connection.execute(
+                    text(
+                        "INSERT INTO orders "
+                        "(moysklad_id, name, raw_payload, synced_at) "
+                        "VALUES ('legacy-order', 'Legacy order', '{}', "
+                        "'2026-07-17 12:00:00')"
+                    )
+                )
+
+            with patch.dict(os.environ, {"DATABASE_URL": database_url}):
+                command.upgrade(self.alembic_config(), "head")
+            columns = {
+                column["name"] for column in inspect(engine).get_columns("orders")
+            }
+            self.assertIn("processing_plan_name", columns)
+            with engine.connect() as connection:
+                row = connection.execute(
+                    text(
+                        "SELECT name, processing_plan_name FROM orders "
+                        "WHERE moysklad_id = 'legacy-order'"
+                    )
+                ).one()
+            self.assertEqual(row.name, "Legacy order")
+            self.assertIsNone(row.processing_plan_name)
+
+            with patch.dict(os.environ, {"DATABASE_URL": database_url}):
+                command.downgrade(self.alembic_config(), "0006_production_progress")
+            columns = {
+                column["name"] for column in inspect(engine).get_columns("orders")
+            }
+            self.assertNotIn("processing_plan_name", columns)
+            engine.dispose()

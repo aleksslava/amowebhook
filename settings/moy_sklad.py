@@ -427,7 +427,11 @@ class MoySkladClient:
         self,
         endpoint: str,
     ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-        payload = await self.request("GET", endpoint, expand=["state"])
+        payload = await self.request(
+            "GET",
+            endpoint,
+            expand=["state", "processingPlan"],
+        )
         if not isinstance(payload, dict) or not isinstance(payload.get("id"), str):
             raise MoySkladAPIError(
                 status_code=200,

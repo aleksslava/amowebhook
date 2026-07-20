@@ -60,6 +60,7 @@ class WebServiceTests(unittest.TestCase):
             self.bob_id = bob.id
             alice_order = self.make_order("Заказ Алисы", alice.id, "order-alice")
             alice_order.device_name = "Устройство Алисы"
+            alice_order.processing_plan_name = "Техкарта Алисы"
             alice_order.state_name = "Готово"
             bob_order = self.make_order("Заказ Бориса", bob.id, "order-bob")
             external_order = self.make_order("Заказ внешнего", None, "order-external")
@@ -217,10 +218,12 @@ class WebServiceTests(unittest.TestCase):
         self.assertNotIn("<th>Исполнитель</th>", order_list.text)
         self.assertRegex(
             order_list.text,
-            r"<th>Заказ</th>\s*<th>Устройство</th>",
+            r"<th>Заказ</th>\s*<th>Устройство</th>\s*"
+            r"<th>Технологическая карта</th>",
         )
         self.assertIn("<th>Готовность</th>", order_list.text)
         self.assertIn("Устройство Алисы", order_list.text)
+        self.assertIn("Техкарта Алисы", order_list.text)
         self.assertIn("Заказ Алисы", order_list.text)
         self.assertNotIn("Заказ Бориса", order_list.text)
         self.assertIn(
@@ -232,6 +235,10 @@ class WebServiceTests(unittest.TestCase):
         self.assertEqual(detail.status_code, 200)
         self.assertIn("Корпус изделия", detail.text)
         self.assertIn("<dt>Устройство</dt><dd>Устройство Алисы</dd>", detail.text)
+        self.assertIn(
+            "<dt>Технологическая карта</dt><dd>Техкарта Алисы</dd>",
+            detail.text,
+        )
         self.assertIn("<dt>Произведено</dt>", detail.text)
         self.assertIn("<th class=\"numeric\">Затрачено</th>", detail.text)
         self.assertNotIn("<th class=\"numeric\">Факт</th>", detail.text)
@@ -254,10 +261,15 @@ class WebServiceTests(unittest.TestCase):
         order_list = self.client.get("/cabinet/orders")
         self.assertRegex(
             order_list.text,
-            r"<th>Заказ</th>\s*<th>Устройство</th>\s*<th>Исполнитель</th>",
+            r"<th>Заказ</th>\s*<th>Устройство</th>\s*"
+            r"<th>Технологическая карта</th>\s*<th>Исполнитель</th>",
         )
         self.assertIn("<th>Готовность</th>", order_list.text)
         self.assertIn('data-label="Устройство">—</td>', order_list.text)
+        self.assertIn(
+            'data-label="Технологическая карта">—</td>',
+            order_list.text,
+        )
         self.assertIn("Заказ Алисы", order_list.text)
         self.assertIn("Заказ Бориса", order_list.text)
         self.assertIn("Внешний исполнитель", order_list.text)

@@ -12,6 +12,7 @@ from services.moy_sklad_sync import (
     MoySkladWebhookPayloadError,
     extract_device_name,
     extract_performer_name,
+    extract_processing_plan_name,
     processing_order_hrefs,
     sync_processing_order,
 )
@@ -22,6 +23,7 @@ def make_order_payload(
     updated: str,
     performer=None,
     device=None,
+    processing_plan=None,
     name: str = "Order 1",
 ):
     attributes = []
@@ -29,7 +31,7 @@ def make_order_payload(
         attributes.append({"name": "Исполнитель", "value": performer})
     if device is not None:
         attributes.append({"name": "Устройство", "value": device})
-    return {
+    payload = {
         "id": "order-id",
         "name": name,
         "code": "code-1",
@@ -51,6 +53,9 @@ def make_order_payload(
             },
         },
     }
+    if processing_plan is not None:
+        payload["processingPlan"] = processing_plan
+    return payload
 
 
 def make_position(position_id: str, quantity: float, name: str):
@@ -120,6 +125,24 @@ class MoySkladSyncTests(unittest.TestCase):
         self.assertIsNone(extract_device_name(unknown_device_payload))
         self.assertIsNone(extract_device_name(wrong_case_payload))
 
+    def test_extracts_processing_plan_name(self):
+        named_payload = make_order_payload(
+            updated="2026-07-17 10:00:00.000",
+            processing_plan={"id": "plan-id", "name": "Tech card A"},
+        )
+        unnamed_payload = make_order_payload(
+            updated="2026-07-17 10:00:00.000",
+            processing_plan={"id": "plan-id"},
+        )
+        invalid_payload = make_order_payload(
+            updated="2026-07-17 10:00:00.000",
+            processing_plan="Tech card B",
+        )
+
+        self.assertEqual(extract_processing_plan_name(named_payload), "Tech card A")
+        self.assertIsNone(extract_processing_plan_name(unnamed_payload))
+        self.assertIsNone(extract_processing_plan_name(invalid_payload))
+
     def test_deduplicates_relevant_webhook_hrefs(self):
         event = {
             "action": "UPDATE",
@@ -153,6 +176,7 @@ class MoySkladSyncTests(unittest.TestCase):
                 updated="2026-07-17 10:00:00.000",
                 performer={"name": "Alice"},
                 device={"name": "Device A"},
+                processing_plan={"name": "Tech card A"},
             ),
             [
                 make_position("position-1", 2, "Product 1"),
@@ -171,6 +195,7 @@ class MoySkladSyncTests(unittest.TestCase):
                     updated="2026-07-17 11:00:00.000",
                     performer="alice",
                     device="Device B",
+                    processing_plan={"name": "Tech card B"},
                     name="Updated order",
                 ),
                 [make_position("position-2", 7, "Updated product")],
@@ -184,6 +209,7 @@ class MoySkladSyncTests(unittest.TestCase):
             self.assertEqual(order.name, "Updated order")
             self.assertEqual(order.performer_name, "alice")
             self.assertEqual(order.device_name, "Device B")
+            self.assertEqual(order.processing_plan_name, "Tech card B")
             self.assertIsNone(order.user_id)
             self.assertEqual(len(items), 1)
             self.assertEqual(items[0].moysklad_position_id, "position-2")
@@ -245,6 +271,46 @@ class MoySkladSyncTests(unittest.TestCase):
 
         with self.Session() as session:
             self.assertIsNone(session.scalar(select(MoySkladOrder)).device_name)
+
+    def test_update_clears_removed_or_invalid_processing_plan(self):
+        sync_processing_order(
+            self.Session,
+            make_order_payload(
+                updated="2026-07-17 10:00:00.000",
+                processing_plan={"name": "Tech card A"},
+            ),
+            [],
+        )
+        sync_processing_order(
+            self.Session,
+            make_order_payload(updated="2026-07-17 11:00:00.000"),
+            [],
+        )
+        with self.Session() as session:
+            self.assertIsNone(
+                session.scalar(select(MoySkladOrder)).processing_plan_name
+            )
+
+        sync_processing_order(
+            self.Session,
+            make_order_payload(
+                updated="2026-07-17 12:00:00.000",
+                processing_plan={"name": "Tech card B"},
+            ),
+            [],
+        )
+        sync_processing_order(
+            self.Session,
+            make_order_payload(
+                updated="2026-07-17 13:00:00.000",
+                processing_plan={"id": "plan-id"},
+            ),
+            [],
+        )
+        with self.Session() as session:
+            self.assertIsNone(
+                session.scalar(select(MoySkladOrder)).processing_plan_name
+            )
 
     def test_rolls_back_order_when_positions_are_invalid(self):
         duplicate = make_position("position-1", 2, "Product 1")
