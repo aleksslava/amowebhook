@@ -25,7 +25,11 @@ class WebServiceTests(unittest.TestCase):
             poolclass=StaticPool,
         )
         Base.metadata.create_all(self.engine)
-        self.Session = sessionmaker(bind=self.engine, expire_on_commit=False)
+        self.Session = sessionmaker(
+            bind=self.engine,
+            autoflush=False,
+            expire_on_commit=False,
+        )
         self.app = FastAPI()
         self.app.include_router(
             create_web_router(
@@ -225,6 +229,7 @@ class WebServiceTests(unittest.TestCase):
         self.assertNotIn("sort=performer", order_list.text)
         self.assertIn("sort=order&amp;direction=asc", order_list.text)
         self.assertIn("sort=processing_plan&amp;direction=asc", order_list.text)
+        self.assertIn("sort=next_stage&amp;direction=asc", order_list.text)
         self.assertIn("sort=readiness&amp;direction=asc", order_list.text)
         self.assertIn("Устройство Алисы", order_list.text)
         self.assertIn("Техкарта Алисы", order_list.text)
@@ -266,6 +271,7 @@ class WebServiceTests(unittest.TestCase):
         self.assertIn("sort=order&amp;direction=asc", order_list.text)
         self.assertIn("sort=processing_plan&amp;direction=asc", order_list.text)
         self.assertIn("sort=performer&amp;direction=asc", order_list.text)
+        self.assertIn("sort=next_stage&amp;direction=asc", order_list.text)
         self.assertIn("sort=readiness&amp;direction=asc", order_list.text)
         self.assertIn('data-label="Устройство">—</td>', order_list.text)
         self.assertIn(
@@ -292,6 +298,18 @@ class WebServiceTests(unittest.TestCase):
         self.assertEqual(self.client.get("/cabinet/orders?user_id=0").status_code, 422)
 
     def test_order_filters_cover_text_state_dates_and_access(self):
+        with self.Session.begin() as db:
+            alice = db.get(MoySkladOrder, self.alice_order_id)
+            alice.last_suborder_number = 1
+            db.add(
+                OrderSuborder(
+                    order_id=alice.id,
+                    number=1,
+                    planned_quantity=Decimal("2"),
+                    actual_quantity=Decimal("0"),
+                    planned_date=date(2026, 7, 17),
+                )
+            )
         self.login("Администратор", "admin-password")
 
         cases = [
@@ -304,7 +322,7 @@ class WebServiceTests(unittest.TestCase):
             (f"user_id={self.bob_id}", "Заказ Бориса", "Заказ Алисы"),
             (
                 "moment_from=2026-07-17&moment_to=2026-07-17"
-                "&delivery_from=2026-07-17&delivery_to=2026-07-17",
+                "&next_stage_from=2026-07-17&next_stage_to=2026-07-17",
                 "Заказ Алисы",
                 None,
             ),
@@ -344,12 +362,12 @@ class WebServiceTests(unittest.TestCase):
         self.login("Администратор", "admin-password")
         browser_form = self.client.get(
             "/cabinet/orders?moment_from=2026-07-17&moment_to=2026-07-17"
-            "&delivery_from=&delivery_to="
+            "&next_stage_from=&next_stage_to="
         )
         self.assertEqual(browser_form.status_code, 200)
         self.assertIn("Заказ Алисы", browser_form.text)
         all_empty = self.client.get(
-            "/cabinet/orders?moment_from=&moment_to=&delivery_from=&delivery_to="
+            "/cabinet/orders?moment_from=&moment_to=&next_stage_from=&next_stage_to="
         )
         self.assertEqual(all_empty.status_code, 200)
 
@@ -358,7 +376,7 @@ class WebServiceTests(unittest.TestCase):
             "direction=sideways",
             "moment_from=not-a-date",
             "moment_from=2026-07-18&moment_to=2026-07-17",
-            "delivery_from=2026-07-18&delivery_to=2026-07-17",
+            "next_stage_from=2026-07-18&next_stage_to=2026-07-17",
         ]
         for query in invalid_queries:
             with self.subTest(query=query):
@@ -390,6 +408,26 @@ class WebServiceTests(unittest.TestCase):
             bob.produced_quantity = Decimal("2")
             unassigned.production_quantity = Decimal("0")
             unassigned.produced_quantity = Decimal("5")
+            alice.last_suborder_number = 1
+            bob.last_suborder_number = 1
+            db.add_all(
+                [
+                    OrderSuborder(
+                        order_id=alice.id,
+                        number=1,
+                        planned_quantity=Decimal("1"),
+                        actual_quantity=Decimal("0"),
+                        planned_date=date(2026, 7, 18),
+                    ),
+                    OrderSuborder(
+                        order_id=bob.id,
+                        number=1,
+                        planned_quantity=Decimal("2"),
+                        actual_quantity=Decimal("0"),
+                        planned_date=date(2026, 7, 19),
+                    ),
+                ]
+            )
 
         self.login("Администратор", "admin-password")
         for key in (
@@ -399,7 +437,7 @@ class WebServiceTests(unittest.TestCase):
             "performer",
             "state",
             "moment",
-            "delivery",
+            "next_stage",
             "quantity",
             "readiness",
         ):
@@ -480,6 +518,252 @@ class WebServiceTests(unittest.TestCase):
         self.assertEqual(sort_params["sort"], ["device"])
         self.assertEqual(sort_params["direction"], ["asc"])
         self.assertNotIn("page", sort_params)
+
+    def test_order_list_shows_next_incomplete_stage_and_expands_rows(self):
+        with self.Session.begin() as db:
+            order = db.get(MoySkladOrder, self.alice_order_id)
+            order.last_suborder_number = 2
+            order.produced_quantity = Decimal("3")
+            db.add_all(
+                [
+                    OrderSuborder(
+                        order_id=order.id,
+                        number=1,
+                        planned_quantity=Decimal("2"),
+                        actual_quantity=Decimal("2"),
+                        planned_date=date(2026, 7, 18),
+                    ),
+                    OrderSuborder(
+                        order_id=order.id,
+                        number=2,
+                        planned_quantity=Decimal("3"),
+                        actual_quantity=Decimal("1"),
+                        planned_date=date(2026, 7, 21),
+                    ),
+                ]
+            )
+
+        self.login("Алиса", "alice-password")
+        order_list = self.client.get("/cabinet/orders")
+        self.assertIn("Дата создания", order_list.text)
+        self.assertIn("Дата следующего этапа", order_list.text)
+        self.assertNotIn("План производства</th>", order_list.text)
+        self.assertIn("21.07.2026", order_list.text)
+        self.assertIn(f"expanded={self.alice_order_id}", order_list.text)
+        self.assertNotIn("Этап 1", order_list.text)
+
+        expanded = self.client.get(
+            f"/cabinet/orders?expanded={self.alice_order_id}"
+        )
+        self.assertIn("Этап 1", expanded.text)
+        self.assertIn("Этап 2", expanded.text)
+        self.assertIn("100%", expanded.text)
+        self.assertIn("33.3%", expanded.text)
+        self.assertNotIn('name="planned_quantity" value="2"', expanded.text)
+        self.assertIn(
+            f'action="/cabinet/orders/{self.alice_order_id}/suborders/1/actual"',
+            expanded.text,
+        )
+
+        completed = self.client.post(
+            f"/cabinet/orders/{self.alice_order_id}/suborders/2/actual",
+            data={
+                "actual_quantity": "3",
+                "return_url": f"/cabinet/orders?expanded={self.alice_order_id}",
+                "csrf_token": self.session_csrf(),
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(completed.status_code, 303)
+        refreshed = self.client.get("/cabinet/orders")
+        self.assertIn('data-label="Дата следующего этапа">—</td>', refreshed.text)
+
+    def test_admin_edits_stage_plan_date_and_actual_from_order_list(self):
+        with self.Session.begin() as db:
+            order = db.get(MoySkladOrder, self.alice_order_id)
+            order.last_suborder_number = 1
+            db.add(
+                OrderSuborder(
+                    order_id=order.id,
+                    number=1,
+                    planned_quantity=Decimal("2"),
+                    actual_quantity=Decimal("0"),
+                    planned_date=date(2026, 7, 20),
+                )
+            )
+
+        self.login("Администратор", "admin-password")
+        expanded_url = (
+            f"/cabinet/orders?sort=order&direction=asc"
+            f"&expanded={self.alice_order_id}"
+        )
+        expanded = self.client.get(expanded_url)
+        self.assertIn('name="planned_quantity" value="2"', expanded.text)
+        self.assertIn('name="planned_date" value="2026-07-20"', expanded.text)
+        self.assertIn('name="actual_quantity" value="0"', expanded.text)
+
+        response = self.client.post(
+            f"/cabinet/orders/{self.alice_order_id}/suborders/1",
+            data={
+                "planned_quantity": "5",
+                "actual_quantity": "2",
+                "planned_date": "2026-07-24",
+                "return_url": expanded_url,
+                "csrf_token": self.session_csrf(),
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(response.headers["location"], expanded_url)
+        with self.Session() as db:
+            order = db.get(MoySkladOrder, self.alice_order_id)
+            suborder = db.get(OrderSuborder, 1)
+            self.assertEqual(order.production_quantity, Decimal("2"))
+            self.assertEqual(order.produced_quantity, Decimal("2"))
+            self.assertEqual(suborder.planned_quantity, Decimal("5"))
+            self.assertEqual(suborder.actual_quantity, Decimal("2"))
+            self.assertEqual(suborder.planned_date, date(2026, 7, 24))
+        refreshed = self.client.get(expanded_url)
+        self.assertIn("24.07.2026", refreshed.text)
+        self.assertIn("40%", refreshed.text)
+
+    def test_admin_splits_order_into_stages_and_preserves_actual(self):
+        with self.Session.begin() as db:
+            order = db.get(MoySkladOrder, self.alice_order_id)
+            order.production_quantity = Decimal("10")
+            order.produced_quantity = Decimal("5")
+
+        self.login("Администратор", "admin-password")
+        csrf_token = self.session_csrf()
+        list_page = self.client.get("/cabinet/orders")
+        self.assertIn("Разбить на этапы", list_page.text)
+        return_url = (
+            f"/cabinet/orders?sort=order&direction=asc"
+            f"&expanded={self.alice_order_id}"
+        )
+        response = self.client.post(
+            f"/cabinet/orders/{self.alice_order_id}/suborders/split",
+            data={
+                "stage_quantity": "3",
+                "return_url": return_url,
+                "csrf_token": csrf_token,
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(response.headers["location"], return_url)
+        with self.Session() as db:
+            suborders = list(
+                db.scalars(
+                    select(OrderSuborder)
+                    .where(OrderSuborder.order_id == self.alice_order_id)
+                    .order_by(OrderSuborder.number)
+                )
+            )
+            self.assertEqual(
+                [item.planned_quantity for item in suborders],
+                [Decimal("3"), Decimal("3"), Decimal("3"), Decimal("1")],
+            )
+            self.assertEqual(
+                [item.actual_quantity for item in suborders],
+                [Decimal("3"), Decimal("2"), Decimal("0"), Decimal("0")],
+            )
+            self.assertTrue(
+                all(item.planned_date == date.today() for item in suborders)
+            )
+            order = db.get(MoySkladOrder, self.alice_order_id)
+            self.assertEqual(order.produced_quantity, Decimal("5"))
+            self.assertEqual(order.last_suborder_number, 4)
+
+        duplicate = self.client.post(
+            f"/cabinet/orders/{self.alice_order_id}/suborders/split",
+            data={"stage_quantity": "3", "csrf_token": csrf_token},
+        )
+        self.assertEqual(duplicate.status_code, 409)
+
+    def test_split_stages_handles_overproduction_limits_and_access(self):
+        self.login("Администратор", "admin-password")
+        csrf_token = self.session_csrf()
+        split_url = f"/cabinet/orders/{self.bob_order_id}/suborders/split"
+        with self.Session.begin() as db:
+            bob = db.get(MoySkladOrder, self.bob_order_id)
+            bob.production_quantity = Decimal("2")
+            bob.produced_quantity = Decimal("5")
+
+        overproduced = self.client.post(
+            split_url,
+            data={"stage_quantity": "3", "csrf_token": csrf_token},
+            follow_redirects=False,
+        )
+        self.assertEqual(overproduced.status_code, 303)
+        self.assertEqual(
+            overproduced.headers["location"],
+            f"/cabinet/orders?expanded={self.bob_order_id}",
+        )
+        with self.Session() as db:
+            suborder = db.scalar(
+                select(OrderSuborder).where(
+                    OrderSuborder.order_id == self.bob_order_id
+                )
+            )
+            self.assertEqual(suborder.planned_quantity, Decimal("2"))
+            self.assertEqual(suborder.actual_quantity, Decimal("5"))
+
+        with self.Session.begin() as db:
+            unassigned = db.get(MoySkladOrder, self.unassigned_order_id)
+            unassigned.production_quantity = Decimal("1001")
+        limited_url = (
+            f"/cabinet/orders/{self.unassigned_order_id}/suborders/split"
+        )
+        self.assertEqual(
+            self.client.post(
+                limited_url,
+                data={"stage_quantity": "1", "csrf_token": csrf_token},
+            ).status_code,
+            400,
+        )
+        for invalid in ("", "0", "-1", "1.5"):
+            with self.subTest(invalid=invalid):
+                self.assertEqual(
+                    self.client.post(
+                        limited_url,
+                        data={"stage_quantity": invalid, "csrf_token": csrf_token},
+                    ).status_code,
+                    400,
+                )
+        safe_redirect = self.client.post(
+            limited_url,
+            data={
+                "stage_quantity": "1001",
+                "return_url": "https://example.com/redirect",
+                "csrf_token": csrf_token,
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(safe_redirect.status_code, 303)
+        self.assertEqual(
+            safe_redirect.headers["location"],
+            f"/cabinet/orders?expanded={self.unassigned_order_id}",
+        )
+        self.assertEqual(
+            self.client.post(
+                limited_url,
+                data={"stage_quantity": "2", "csrf_token": "invalid"},
+            ).status_code,
+            400,
+        )
+
+        regular_client = TestClient(self.app)
+        try:
+            self.login("Алиса", "alice-password", client=regular_client)
+            user_csrf = self.session_csrf(client=regular_client)
+            forbidden = regular_client.post(
+                f"/cabinet/orders/{self.alice_order_id}/suborders/split",
+                data={"stage_quantity": "1", "csrf_token": user_csrf},
+            )
+            self.assertEqual(forbidden.status_code, 403)
+        finally:
+            regular_client.close()
 
     def test_user_saves_produced_and_partial_spent_quantities(self):
         self.login("Алиса", "alice-password")
@@ -791,6 +1075,8 @@ class WebServiceTests(unittest.TestCase):
             f'action="/cabinet/orders/{self.alice_order_id}/suborders"',
             detail.text,
         )
+        order_list_before = self.client.get("/cabinet/orders")
+        self.assertIn("50%", order_list_before.text)
 
         actual = self.client.post(
             f"/cabinet/orders/{self.alice_order_id}/suborders/{suborder_id}/actual",
@@ -806,6 +1092,8 @@ class WebServiceTests(unittest.TestCase):
                 db.get(MoySkladOrder, self.alice_order_id).produced_quantity,
                 Decimal("4"),
             )
+        order_list_after = self.client.get("/cabinet/orders")
+        self.assertIn("200%", order_list_after.text)
 
         admin_update = self.client.post(
             f"/cabinet/orders/{self.alice_order_id}/suborders/{suborder_id}",

@@ -8,7 +8,7 @@ from datetime import date, datetime, time
 from decimal import Decimal, ROUND_FLOOR, ROUND_HALF_UP
 from pathlib import Path
 from typing import Callable
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 from fastapi import APIRouter, Form, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse, RedirectResponse, Response
@@ -33,6 +33,7 @@ PACKAGE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
 PAGE_SIZE = 25
 MAX_LOCAL_QUANTITY = 999_999_999_999
+MAX_BATCH_SUBORDERS = 1000
 _INTEGER_PATTERN = re.compile(r"^[0-9]+$")
 _DATE_PATTERN = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 _NO_STATE_FILTER = "__none__"
@@ -43,7 +44,7 @@ _ORDER_SORT_KEYS = {
     "performer",
     "state",
     "moment",
-    "delivery",
+    "next_stage",
     "quantity",
     "readiness",
 }
@@ -130,6 +131,15 @@ def _spent_limit(quantity: Decimal) -> Decimal:
 def _orders_url(params: dict[str, str | int]) -> str:
     query = urlencode(params)
     return f"/cabinet/orders?{query}" if query else "/cabinet/orders"
+
+
+def _safe_orders_return_url(value: str, fallback: str) -> str:
+    if not value:
+        return fallback
+    parsed = urlsplit(value)
+    if parsed.scheme or parsed.netloc or parsed.path != "/cabinet/orders":
+        return fallback
+    return value
 
 
 def _casefold(value: str | None) -> str | None:
@@ -249,6 +259,7 @@ def create_web_router(
         return order
 
     def sync_suborder_actuals(db: Session, order: MoySkladOrder) -> None:
+        db.flush()
         count, total = db.execute(
             select(
                 func.count(OrderSuborder.id),
@@ -362,26 +373,35 @@ def create_web_router(
         state: str = Query("", max_length=255),
         moment_from_value: str = Query("", alias="moment_from", max_length=10),
         moment_to_value: str = Query("", alias="moment_to", max_length=10),
-        delivery_from_value: str = Query("", alias="delivery_from", max_length=10),
-        delivery_to_value: str = Query("", alias="delivery_to", max_length=10),
+        next_stage_from_value: str = Query(
+            "",
+            alias="next_stage_from",
+            max_length=10,
+        ),
+        next_stage_to_value: str = Query(
+            "",
+            alias="next_stage_to",
+            max_length=10,
+        ),
+        expanded_order_id: int | None = Query(None, alias="expanded", ge=1),
         sort: str = Query(
             "moment",
             pattern=(
                 r"^(?:order|device|processing_plan|performer|state|moment|"
-                r"delivery|quantity|readiness)$"
+                r"next_stage|quantity|readiness)$"
             ),
         ),
         direction: str = Query("desc", pattern=r"^(?:asc|desc)$"),
     ) -> Response:
         moment_from = _parse_optional_date(moment_from_value, "order start date")
         moment_to = _parse_optional_date(moment_to_value, "order end date")
-        delivery_from = _parse_optional_date(
-            delivery_from_value,
-            "production start date",
+        next_stage_from = _parse_optional_date(
+            next_stage_from_value,
+            "next stage start date",
         )
-        delivery_to = _parse_optional_date(
-            delivery_to_value,
-            "production end date",
+        next_stage_to = _parse_optional_date(
+            next_stage_to_value,
+            "next stage end date",
         )
         if (
             moment_from is not None
@@ -389,12 +409,12 @@ def create_web_router(
             and moment_from > moment_to
         ):
             raise HTTPException(status_code=422, detail="Invalid order date range")
-        if (
-            delivery_from is not None
-            and delivery_to is not None
-            and delivery_from > delivery_to
-        ):
-            raise HTTPException(status_code=422, detail="Invalid production date range")
+        if next_stage_from is not None and next_stage_to is not None:
+            if next_stage_from > next_stage_to:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Invalid next stage date range",
+                )
 
         with session_factory() as db:
             auth = require_user(request, db)
@@ -415,6 +435,16 @@ def create_web_router(
             device = device.strip()
             processing_plan = processing_plan.strip()
             state = state.strip()
+            next_stage_date_expression = (
+                select(func.min(OrderSuborder.planned_date))
+                .where(
+                    OrderSuborder.order_id == MoySkladOrder.id,
+                    OrderSuborder.actual_quantity
+                    < OrderSuborder.planned_quantity,
+                )
+                .correlate(MoySkladOrder)
+                .scalar_subquery()
+            )
 
             access_conditions = []
             selected_user = None
@@ -488,16 +518,10 @@ def create_web_router(
                 conditions.append(
                     MoySkladOrder.moment <= datetime.combine(moment_to, time.max)
                 )
-            if delivery_from is not None:
-                conditions.append(
-                    MoySkladOrder.delivery_planned_moment
-                    >= datetime.combine(delivery_from, time.min)
-                )
-            if delivery_to is not None:
-                conditions.append(
-                    MoySkladOrder.delivery_planned_moment
-                    <= datetime.combine(delivery_to, time.max)
-                )
+            if next_stage_from is not None:
+                conditions.append(next_stage_date_expression >= next_stage_from)
+            if next_stage_to is not None:
+                conditions.append(next_stage_date_expression <= next_stage_to)
 
             readiness_expression = case(
                 (
@@ -516,7 +540,7 @@ def create_web_router(
                 "performer": func.coalesce(User.name, MoySkladOrder.performer_name),
                 "state": MoySkladOrder.state_name,
                 "moment": MoySkladOrder.moment,
-                "delivery": MoySkladOrder.delivery_planned_moment,
+                "next_stage": next_stage_date_expression,
                 "quantity": MoySkladOrder.production_quantity,
                 "readiness": readiness_expression,
             }
@@ -547,9 +571,75 @@ def create_web_router(
 
             total = db.scalar(count_query) or 0
             orders = list(db.scalars(orders_query))
+            order_ids = [order.id for order in orders]
+            suborder_counts: dict[int, int] = {}
+            next_stage_dates: dict[int, date] = {}
+            if order_ids:
+                summary_rows = db.execute(
+                    select(
+                        OrderSuborder.order_id,
+                        func.count(OrderSuborder.id),
+                        func.min(
+                            case(
+                                (
+                                    OrderSuborder.actual_quantity
+                                    < OrderSuborder.planned_quantity,
+                                    OrderSuborder.planned_date,
+                                ),
+                            )
+                        ),
+                    )
+                    .where(OrderSuborder.order_id.in_(order_ids))
+                    .group_by(OrderSuborder.order_id)
+                )
+                for order_id, count, next_stage_date in summary_rows:
+                    suborder_counts[order_id] = count
+                    if next_stage_date is not None:
+                        next_stage_dates[order_id] = next_stage_date
+
+            expanded_order = next(
+                (
+                    order
+                    for order in orders
+                    if order.id == expanded_order_id
+                ),
+                None,
+            )
+            expanded_suborders = []
+            expanded_suborder_readiness = {}
+            if expanded_order is not None:
+                expanded_suborders = list(
+                    db.scalars(
+                        select(OrderSuborder)
+                        .where(OrderSuborder.order_id == expanded_order.id)
+                        .order_by(OrderSuborder.number)
+                    )
+                )
+                expanded_suborder_readiness = {
+                    suborder.id: calculate_readiness(
+                        suborder.actual_quantity,
+                        suborder.planned_quantity,
+                    )
+                    for suborder in expanded_suborders
+                }
             order_readiness = {
                 order.id: calculate_order_readiness(order) for order in orders
             }
+            split_disabled_reasons: dict[int, str] = {}
+            if current_user.is_admin:
+                for order in orders:
+                    quantity = order.production_quantity
+                    produced = order.produced_quantity or Decimal("0")
+                    if quantity is None or quantity <= 0:
+                        split_disabled_reasons[order.id] = "Не указан объём заказа"
+                    elif quantity != quantity.to_integral_value():
+                        split_disabled_reasons[order.id] = "Объём заказа не целый"
+                    elif quantity > MAX_LOCAL_QUANTITY:
+                        split_disabled_reasons[order.id] = "Объём заказа слишком большой"
+                    elif produced < 0 or produced != produced.to_integral_value():
+                        split_disabled_reasons[order.id] = "Фактический объём не целый"
+                    elif produced > MAX_LOCAL_QUANTITY:
+                        split_disabled_reasons[order.id] = "Фактический объём слишком большой"
             users = (
                 list(db.scalars(select(User).order_by(User.name)))
                 if current_user.is_admin
@@ -571,15 +661,26 @@ def create_web_router(
                 filter_params["moment_from"] = moment_from.isoformat()
             if moment_to is not None:
                 filter_params["moment_to"] = moment_to.isoformat()
-            if delivery_from is not None:
-                filter_params["delivery_from"] = delivery_from.isoformat()
-            if delivery_to is not None:
-                filter_params["delivery_to"] = delivery_to.isoformat()
+            if next_stage_from is not None:
+                filter_params["next_stage_from"] = next_stage_from.isoformat()
+            if next_stage_to is not None:
+                filter_params["next_stage_to"] = next_stage_to.isoformat()
 
             current_params = {
                 **filter_params,
                 "sort": sort,
                 "direction": direction,
+            }
+            page_params = {
+                **current_params,
+                **({"page": page} if page > 1 else {}),
+            }
+            collapse_url = _orders_url(page_params)
+            expand_urls = {
+                order.id: _orders_url(
+                    {**page_params, "expanded": order.id}
+                )
+                for order in orders
             }
             sort_urls = {}
             for key in _ORDER_SORT_KEYS:
@@ -615,15 +716,32 @@ def create_web_router(
                         "state": state,
                         "moment_from": moment_from.isoformat() if moment_from else "",
                         "moment_to": moment_to.isoformat() if moment_to else "",
-                        "delivery_from": (
-                            delivery_from.isoformat() if delivery_from else ""
+                        "next_stage_from": (
+                            next_stage_from.isoformat() if next_stage_from else ""
                         ),
-                        "delivery_to": delivery_to.isoformat() if delivery_to else "",
+                        "next_stage_to": (
+                            next_stage_to.isoformat() if next_stage_to else ""
+                        ),
                     },
                     "active_filters": bool(filter_params),
                     "sort": sort,
                     "direction": direction,
                     "sort_urls": sort_urls,
+                    "suborder_counts": suborder_counts,
+                    "next_stage_dates": next_stage_dates,
+                    "expanded_order_id": (
+                        expanded_order.id if expanded_order is not None else None
+                    ),
+                    "expanded_suborders": expanded_suborders,
+                    "expanded_suborder_readiness": expanded_suborder_readiness,
+                    "expand_urls": expand_urls,
+                    "collapse_url": collapse_url,
+                    "expanded_return_url": (
+                        expand_urls[expanded_order.id]
+                        if expanded_order is not None
+                        else collapse_url
+                    ),
+                    "split_disabled_reasons": split_disabled_reasons,
                     "page": page,
                     "total": total,
                     "total_pages": total_pages,
@@ -827,6 +945,121 @@ def create_web_router(
         )
 
     @router.post(
+        "/orders/{order_id}/suborders/split",
+        include_in_schema=False,
+    )
+    def split_order_into_suborders(
+        request: Request,
+        order_id: int,
+        stage_quantity: str = Form(""),
+        return_url: str = Form(""),
+        csrf_token: str = Form(...),
+    ) -> Response:
+        with session_factory() as db:
+            auth = require_user(request, db)
+            if isinstance(auth, Response):
+                return auth
+            current_user, web_session = auth
+            order = admin_order(db, current_user, order_id)
+            require_csrf(web_session, csrf_token)
+
+            parsed_stage_quantity = _parse_local_quantity(
+                stage_quantity,
+                "Stage quantity",
+            )
+            if parsed_stage_quantity <= 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Stage quantity must be positive",
+                )
+            total_quantity = order.production_quantity
+            if total_quantity is None or total_quantity <= 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Order quantity must be positive",
+                )
+            if (
+                total_quantity != total_quantity.to_integral_value()
+                or total_quantity > MAX_LOCAL_QUANTITY
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Order quantity must be a supported integer",
+                )
+            produced_quantity = order.produced_quantity or Decimal("0")
+            if (
+                produced_quantity < 0
+                or produced_quantity != produced_quantity.to_integral_value()
+                or produced_quantity > MAX_LOCAL_QUANTITY
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Produced quantity must be a supported integer",
+                )
+            if db.scalar(
+                select(func.count(OrderSuborder.id)).where(
+                    OrderSuborder.order_id == order.id
+                )
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Order already has suborders",
+                )
+
+            total_value = int(total_quantity)
+            stage_value = int(parsed_stage_quantity)
+            stage_count = (total_value + stage_value - 1) // stage_value
+            if stage_count > MAX_BATCH_SUBORDERS:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Too many suborders; increase the stage quantity"
+                    ),
+                )
+
+            remaining_plan = total_value
+            remaining_actual = int(produced_quantity)
+            suborders = []
+            planned_date = date.today()
+            for offset in range(1, stage_count + 1):
+                planned_value = min(stage_value, remaining_plan)
+                actual_value = min(remaining_actual, planned_value)
+                suborders.append(
+                    OrderSuborder(
+                        order_id=order.id,
+                        number=order.last_suborder_number + offset,
+                        planned_quantity=Decimal(planned_value),
+                        actual_quantity=Decimal(actual_value),
+                        planned_date=planned_date,
+                    )
+                )
+                remaining_plan -= planned_value
+                remaining_actual -= actual_value
+            if remaining_actual:
+                suborders[-1].actual_quantity += Decimal(remaining_actual)
+
+            order.last_suborder_number += stage_count
+            db.add_all(suborders)
+            try:
+                sync_suborder_actuals(db, order)
+                db.commit()
+            except IntegrityError as error:
+                db.rollback()
+                raise HTTPException(
+                    status_code=409,
+                    detail="Order stages changed; reload the page",
+                ) from error
+
+        target = _safe_orders_return_url(
+            return_url,
+            f"/cabinet/orders?expanded={order_id}",
+        )
+        return RedirectResponse(
+            target,
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    @router.post(
         "/orders/{order_id}/suborders/{suborder_id}",
         include_in_schema=False,
     )
@@ -837,6 +1070,7 @@ def create_web_router(
         planned_quantity: str = Form(""),
         actual_quantity: str = Form(""),
         planned_date: str = Form(""),
+        return_url: str = Form(""),
         csrf_token: str = Form(...),
     ) -> Response:
         with session_factory() as db:
@@ -869,8 +1103,12 @@ def create_web_router(
             sync_suborder_actuals(db, order)
             db.commit()
 
-        return RedirectResponse(
+        target = _safe_orders_return_url(
+            return_url,
             f"/cabinet/orders/{order_id}?suborder_saved=1",
+        )
+        return RedirectResponse(
+            target,
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
@@ -883,6 +1121,7 @@ def create_web_router(
         order_id: int,
         suborder_id: int,
         actual_quantity: str = Form(""),
+        return_url: str = Form(""),
         csrf_token: str = Form(...),
     ) -> Response:
         with session_factory() as db:
@@ -907,8 +1146,12 @@ def create_web_router(
             sync_suborder_actuals(db, order)
             db.commit()
 
-        return RedirectResponse(
+        target = _safe_orders_return_url(
+            return_url,
             f"/cabinet/orders/{order_id}?suborder_saved=1",
+        )
+        return RedirectResponse(
+            target,
             status_code=status.HTTP_303_SEE_OTHER,
         )
 

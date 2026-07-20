@@ -57,20 +57,20 @@
             </select>
         </label>
         <label>
-            <span>Дата заказа от</span>
+            <span>Дата создания от</span>
             <input type="date" name="moment_from" value="{{ filters.moment_from }}">
         </label>
         <label>
-            <span>Дата заказа до</span>
+            <span>Дата создания до</span>
             <input type="date" name="moment_to" value="{{ filters.moment_to }}">
         </label>
         <label>
-            <span>План производства от</span>
-            <input type="date" name="delivery_from" value="{{ filters.delivery_from }}">
+            <span>Следующий этап от</span>
+            <input type="date" name="next_stage_from" value="{{ filters.next_stage_from }}">
         </label>
         <label>
-            <span>План производства до</span>
-            <input type="date" name="delivery_to" value="{{ filters.delivery_to }}">
+            <span>Следующий этап до</span>
+            <input type="date" name="next_stage_to" value="{{ filters.next_stage_to }}">
         </label>
     </div>
     <div class="filter-actions">
@@ -89,17 +89,25 @@
             {{ sortable_header('processing_plan', 'Технологическая карта') }}
             {% if current_user.is_admin %}{{ sortable_header('performer', 'Исполнитель') }}{% endif %}
             {{ sortable_header('state', 'Статус') }}
-            {{ sortable_header('moment', 'Дата заказа') }}
-            {{ sortable_header('delivery', 'План производства') }}
+            {{ sortable_header('moment', 'Дата создания') }}
+            {{ sortable_header('next_stage', 'Дата следующего этапа') }}
             {{ sortable_header('quantity', 'Объём', true) }}
             {{ sortable_header('readiness', 'Готовность') }}
+            <th class="actions">Действия</th>
         </tr>
         </thead>
         <tbody>
         {% for order in orders %}
-        <tr>
+        {% set suborder_count = suborder_counts.get(order.id, 0) %}
+        {% set is_expanded = expanded_order_id == order.id %}
+        <tr class="order-row{% if is_expanded %} order-row--expanded{% endif %}">
             <td data-label="Заказ">
-                <a class="order-link" href="/cabinet/orders/{{ order.id }}">{{ order.name }}</a>
+                <div class="order-title-cell">
+                    {% if suborder_count %}
+                    <a class="stage-toggle" href="{{ collapse_url if is_expanded else expand_urls[order.id] }}" aria-expanded="{{ 'true' if is_expanded else 'false' }}" aria-label="{{ 'Свернуть этапы' if is_expanded else 'Раскрыть этапы' }} заказа {{ order.name }}">{{ '−' if is_expanded else '+' }}</a>
+                    {% else %}<span class="stage-toggle-spacer"></span>{% endif %}
+                    <a class="order-link" href="/cabinet/orders/{{ order.id }}">{{ order.name }}</a>
+                </div>
                 {% if order.code %}<span class="cell-note">Код {{ order.code }}</span>{% endif %}
             </td>
             <td data-label="Устройство">{{ order.device_name or '—' }}</td>
@@ -108,11 +116,71 @@
             <td data-label="Исполнитель">{{ order.user.name if order.user else (order.performer_name or 'Не назначен') }}</td>
             {% endif %}
             <td data-label="Статус"><span class="order-status order-status--{{ order.state_name|order_status_class }}"><span class="status-dot"></span>{{ order.state_name or 'Без статуса' }}</span></td>
-            <td data-label="Дата заказа">{{ order.moment|datetime }}</td>
-            <td data-label="План производства">{{ order.delivery_planned_moment|datetime }}</td>
+            <td data-label="Дата создания">{{ order.moment|datetime }}</td>
+            <td data-label="Дата следующего этапа">{{ next_stage_dates.get(order.id)|date }}</td>
             <td data-label="Объём" class="numeric">{{ order.production_quantity|number }}</td>
             <td data-label="Готовность">{{ readiness(order_readiness[order.id]) }}</td>
+            <td data-label="Действия" class="actions order-actions">
+                {% if current_user.is_admin and not suborder_count %}
+                    {% if split_disabled_reasons.get(order.id) %}
+                    <span class="action-unavailable" title="{{ split_disabled_reasons[order.id] }}">Недоступно</span>
+                    {% else %}
+                    <details class="split-control">
+                        <summary>Разбить на этапы</summary>
+                        <form method="post" action="/cabinet/orders/{{ order.id }}/suborders/split">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <input type="hidden" name="return_url" value="{{ expand_urls[order.id] }}">
+                            <label>
+                                <span>Объём этапа</span>
+                                <input class="quantity-input" type="number" name="stage_quantity" min="1" max="999999999999" step="1" inputmode="numeric" required>
+                            </label>
+                            <button class="primary-button compact-button" type="submit">Создать</button>
+                        </form>
+                    </details>
+                    {% endif %}
+                {% else %}<span class="muted">—</span>{% endif %}
+            </td>
         </tr>
+        {% if is_expanded %}
+            {% for suborder in expanded_suborders %}
+            {% set stage_form_id = 'order-list-stage-' ~ suborder.id %}
+            <tr class="stage-row">
+                <td data-label="Заказ"><span class="stage-label">Этап {{ suborder.number }}</span></td>
+                <td data-label="Устройство" class="stage-empty">—</td>
+                <td data-label="Технологическая карта" class="stage-empty">—</td>
+                {% if current_user.is_admin %}<td data-label="Исполнитель" class="stage-empty">—</td>{% endif %}
+                <td data-label="Статус" class="stage-empty">—</td>
+                <td data-label="Дата создания" class="stage-empty">—</td>
+                <td data-label="Дата следующего этапа">
+                    {% if current_user.is_admin %}
+                    <input class="date-input stage-input" type="date" name="planned_date" value="{{ suborder.planned_date.isoformat() }}" required aria-label="Плановая дата этапа {{ suborder.number }}" form="{{ stage_form_id }}">
+                    {% else %}{{ suborder.planned_date|date }}{% endif %}
+                </td>
+                <td data-label="Объём" class="numeric">
+                    {% if current_user.is_admin %}
+                    <input class="quantity-input stage-input" type="number" name="planned_quantity" value="{{ suborder.planned_quantity|number }}" min="0" max="999999999999" step="1" inputmode="numeric" required aria-label="План этапа {{ suborder.number }}" form="{{ stage_form_id }}">
+                    {% else %}{{ suborder.planned_quantity|number }}{% endif %}
+                </td>
+                <td data-label="Готовность">
+                    <div class="stage-readiness-edit">
+                        <input class="quantity-input stage-input" type="number" name="actual_quantity" value="{{ suborder.actual_quantity|number }}" min="0" max="999999999999" step="1" inputmode="numeric" required aria-label="Факт этапа {{ suborder.number }}" form="{{ stage_form_id }}">
+                        {{ readiness(expanded_suborder_readiness[suborder.id]) }}
+                    </div>
+                </td>
+                <td data-label="Действия" class="actions">
+                    {% if current_user.is_admin %}
+                    <form id="{{ stage_form_id }}" method="post" action="/cabinet/orders/{{ order.id }}/suborders/{{ suborder.id }}">
+                    {% else %}
+                    <form id="{{ stage_form_id }}" method="post" action="/cabinet/orders/{{ order.id }}/suborders/{{ suborder.id }}/actual">
+                    {% endif %}
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <input type="hidden" name="return_url" value="{{ expanded_return_url }}">
+                    </form>
+                    <button class="secondary-button compact-button" type="submit" form="{{ stage_form_id }}">Сохранить</button>
+                </td>
+            </tr>
+            {% endfor %}
+        {% endif %}
         {% endfor %}
         </tbody>
     </table>

@@ -73,6 +73,10 @@ select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
 .sort-indicator { color: var(--accent-dark); font-size: 14px; line-height: 1; }
 .order-link { font-weight: 750; text-decoration-color: #b8bdc2; }
 .order-link:hover { color: var(--accent-dark); text-decoration-color: currentColor; }
+.order-title-cell { display: flex; align-items: center; gap: 9px; }
+.stage-toggle, .stage-toggle-spacer { width: 24px; height: 24px; flex: 0 0 24px; }
+.stage-toggle { display: inline-grid; place-items: center; border: 1px solid #b8bdc2; border-radius: 5px; color: var(--muted); background: rgb(255 255 255 / 55%); font-weight: 800; line-height: 1; text-decoration: none; }
+.stage-toggle:hover { border-color: var(--accent); color: var(--accent-dark); background: #fff; }
 .cell-note { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
 .order-status { display: inline-flex; align-items: center; gap: 7px; padding: 3px 8px; border: 1px solid #c9ced4; border-radius: 999px; color: #5f6873; background: transparent; font-size: 12px; font-weight: 700; line-height: 1.35; white-space: nowrap; }
 .order-status--neutral { border-style: dashed; }
@@ -136,6 +140,23 @@ select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
 .state-off::before { background: #9ba2aa; }
 .actions { text-align: right; }
 .actions form { margin: 0; }
+.order-actions { min-width: 180px; }
+.action-unavailable { color: var(--muted); font-size: 12px; border-bottom: 1px dotted currentColor; }
+.split-control summary { display: inline-flex; justify-content: center; align-items: center; min-height: 38px; padding: 8px 12px; border: 1px solid #b8bdc2; border-radius: 7px; color: var(--ink); background: transparent; font-weight: 700; list-style: none; cursor: pointer; }
+.split-control summary::-webkit-details-marker { display: none; }
+.split-control[open] summary { border-color: var(--ink); background: rgb(255 255 255 / 65%); }
+.split-control form { display: grid; justify-items: end; gap: 10px; margin-top: 12px; }
+.split-control label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; text-align: left; }
+.split-control .quantity-input { width: 128px; }
+.order-row--expanded td { border-bottom-color: #c4c9cf; }
+.stage-row { background: rgb(255 255 255 / 42%); }
+.stage-row td { padding-top: 13px; padding-bottom: 13px; }
+.stage-row:hover { background: rgb(255 255 255 / 72%) !important; }
+.stage-label { display: inline-block; padding-left: 33px; color: var(--accent-dark); font-weight: 750; }
+.stage-empty { color: #a0a7af; }
+.stage-input { background: #fff; }
+.stage-readiness-edit { display: flex; align-items: center; gap: 12px; min-width: 245px; }
+.stage-readiness-edit .readiness { flex: 1; }
 .row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 16px; white-space: nowrap; }
 .danger-link { border: 0; color: var(--danger); background: none; text-decoration: underline; text-underline-offset: 3px; }
 
@@ -183,6 +204,14 @@ select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
     .data-table td { display: grid; grid-template-columns: minmax(105px, 38%) 1fr; gap: 12px; padding: 7px 0; border: 0; text-align: left !important; }
     .data-table td::before { content: attr(data-label); color: var(--muted); font-size: 12px; }
     .data-table td.actions { display: block; padding-top: 14px; }
+    .order-title-cell { align-items: flex-start; }
+    .stage-row { margin-left: 16px; padding-left: 14px !important; border-left: 3px solid #e5a33e; }
+    .stage-row .stage-empty { display: none; }
+    .stage-label { padding-left: 0; }
+    .stage-readiness-edit { align-items: stretch; flex-direction: column; min-width: 0; }
+    .stage-readiness-edit .quantity-input, .stage-row .date-input, .stage-row .quantity-input { width: 100%; }
+    .split-control form { justify-items: stretch; }
+    .split-control .quantity-input { width: 100%; }
     .row-actions { justify-content: flex-start; }
     .suborder-summary { width: 100%; margin-left: 0; }
     .suborder-actions { justify-content: flex-start; }
