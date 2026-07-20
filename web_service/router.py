@@ -4,15 +4,16 @@ import hmac
 import math
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, time
 from decimal import Decimal, ROUND_FLOOR, ROUND_HALF_UP
 from pathlib import Path
 from typing import Callable
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Form, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
@@ -33,6 +34,18 @@ templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
 PAGE_SIZE = 25
 MAX_LOCAL_QUANTITY = 999_999_999_999
 _INTEGER_PATTERN = re.compile(r"^[0-9]+$")
+_NO_STATE_FILTER = "__none__"
+_ORDER_SORT_KEYS = {
+    "order",
+    "device",
+    "processing_plan",
+    "performer",
+    "state",
+    "moment",
+    "delivery",
+    "quantity",
+    "readiness",
+}
 _ORDER_STATUS_CLASSES = {
     "Готово": "ready",
     "В работе": "in-work",
@@ -107,6 +120,24 @@ def _spent_limit(quantity: Decimal) -> Decimal:
     if quantity <= 0:
         return Decimal("0")
     return quantity.to_integral_value(rounding=ROUND_FLOOR)
+
+
+def _orders_url(params: dict[str, str | int]) -> str:
+    query = urlencode(params)
+    return f"/cabinet/orders?{query}" if query else "/cabinet/orders"
+
+
+def _casefold(value: str | None) -> str | None:
+    return value.casefold() if value is not None else None
+
+
+def _case_insensitive_contains(column, value: str, dialect_name: str):
+    if dialect_name == "sqlite":
+        return func.unicode_casefold(column).contains(
+            value.casefold(),
+            autoescape=True,
+        )
+    return column.icontains(value, autoescape=True)
 
 
 templates.env.filters["datetime"] = _format_datetime
@@ -264,36 +295,184 @@ def create_web_router(
         request: Request,
         page: int = Query(1, ge=1),
         user_id: str | None = Query(None, pattern=r"^(?:|0*[1-9][0-9]*)$"),
+        q: str = Query("", max_length=255),
+        device: str = Query("", max_length=255),
+        processing_plan: str = Query("", max_length=255),
+        state: str = Query("", max_length=255),
+        moment_from: date | None = Query(None),
+        moment_to: date | None = Query(None),
+        delivery_from: date | None = Query(None),
+        delivery_to: date | None = Query(None),
+        sort: str = Query(
+            "moment",
+            pattern=(
+                r"^(?:order|device|processing_plan|performer|state|moment|"
+                r"delivery|quantity|readiness)$"
+            ),
+        ),
+        direction: str = Query("desc", pattern=r"^(?:asc|desc)$"),
     ) -> Response:
+        if (
+            moment_from is not None
+            and moment_to is not None
+            and moment_from > moment_to
+        ):
+            raise HTTPException(status_code=422, detail="Invalid order date range")
+        if (
+            delivery_from is not None
+            and delivery_to is not None
+            and delivery_from > delivery_to
+        ):
+            raise HTTPException(status_code=422, detail="Invalid production date range")
+
         with session_factory() as db:
             auth = require_user(request, db)
             if isinstance(auth, Response):
                 return auth
             current_user, web_session = auth
+            dialect_name = db.get_bind().dialect.name
+            if dialect_name == "sqlite":
+                driver_connection = db.connection().connection.driver_connection
+                driver_connection.create_function(
+                    "unicode_casefold",
+                    1,
+                    _casefold,
+                    deterministic=True,
+                )
             selected_user_id = int(user_id) if user_id else None
+            q = q.strip()
+            device = device.strip()
+            processing_plan = processing_plan.strip()
+            state = state.strip()
 
-            conditions = []
+            access_conditions = []
             selected_user = None
             if current_user.is_admin:
                 if selected_user_id is not None:
                     selected_user = db.get(User, selected_user_id)
                     if selected_user is None:
                         raise HTTPException(status_code=404, detail="User not found")
-                    conditions.append(MoySkladOrder.user_id == selected_user_id)
+                    access_conditions.append(MoySkladOrder.user_id == selected_user_id)
             else:
-                conditions.append(MoySkladOrder.user_id == current_user.id)
+                selected_user_id = None
+                access_conditions.append(MoySkladOrder.user_id == current_user.id)
+
+            states_query = (
+                select(MoySkladOrder.state_name)
+                .distinct()
+                .order_by(MoySkladOrder.state_name)
+            )
+            if access_conditions:
+                states_query = states_query.where(*access_conditions)
+            available_states = list(db.scalars(states_query))
+            state_options = [value for value in available_states if value]
+            has_orders_without_state = any(not value for value in available_states)
+
+            conditions = list(access_conditions)
+            if q:
+                conditions.append(
+                    or_(
+                        _case_insensitive_contains(
+                            MoySkladOrder.name,
+                            q,
+                            dialect_name,
+                        ),
+                        _case_insensitive_contains(
+                            MoySkladOrder.code,
+                            q,
+                            dialect_name,
+                        ),
+                    )
+                )
+            if device:
+                conditions.append(
+                    _case_insensitive_contains(
+                        MoySkladOrder.device_name,
+                        device,
+                        dialect_name,
+                    )
+                )
+            if processing_plan:
+                conditions.append(
+                    _case_insensitive_contains(
+                        MoySkladOrder.processing_plan_name,
+                        processing_plan,
+                        dialect_name,
+                    )
+                )
+            if state == _NO_STATE_FILTER:
+                conditions.append(
+                    or_(
+                        MoySkladOrder.state_name.is_(None),
+                        MoySkladOrder.state_name == "",
+                    )
+                )
+            elif state:
+                conditions.append(MoySkladOrder.state_name == state)
+            if moment_from is not None:
+                conditions.append(
+                    MoySkladOrder.moment >= datetime.combine(moment_from, time.min)
+                )
+            if moment_to is not None:
+                conditions.append(
+                    MoySkladOrder.moment <= datetime.combine(moment_to, time.max)
+                )
+            if delivery_from is not None:
+                conditions.append(
+                    MoySkladOrder.delivery_planned_moment
+                    >= datetime.combine(delivery_from, time.min)
+                )
+            if delivery_to is not None:
+                conditions.append(
+                    MoySkladOrder.delivery_planned_moment
+                    <= datetime.combine(delivery_to, time.max)
+                )
+
+            readiness_expression = case(
+                (
+                    func.coalesce(MoySkladOrder.production_quantity, 0) <= 0,
+                    0,
+                ),
+                else_=(
+                    func.coalesce(MoySkladOrder.produced_quantity, 0)
+                    / MoySkladOrder.production_quantity
+                ),
+            )
+            sort_expressions = {
+                "order": MoySkladOrder.name,
+                "device": MoySkladOrder.device_name,
+                "processing_plan": MoySkladOrder.processing_plan_name,
+                "performer": func.coalesce(User.name, MoySkladOrder.performer_name),
+                "state": MoySkladOrder.state_name,
+                "moment": MoySkladOrder.moment,
+                "delivery": MoySkladOrder.delivery_planned_moment,
+                "quantity": MoySkladOrder.production_quantity,
+                "readiness": readiness_expression,
+            }
+            sort_expression = sort_expressions[sort]
+            sort_clause = (
+                sort_expression.asc() if direction == "asc" else sort_expression.desc()
+            )
+            if sort not in {"order", "readiness"}:
+                sort_clause = sort_clause.nulls_last()
 
             count_query = select(func.count(MoySkladOrder.id))
-            orders_query = (
-                select(MoySkladOrder)
-                .options(joinedload(MoySkladOrder.user))
-                .order_by(MoySkladOrder.moment.desc(), MoySkladOrder.id.desc())
-                .offset((page - 1) * PAGE_SIZE)
-                .limit(PAGE_SIZE)
+            orders_query = select(MoySkladOrder).options(
+                joinedload(MoySkladOrder.user)
             )
+            if sort == "performer":
+                orders_query = orders_query.outerjoin(
+                    User,
+                    MoySkladOrder.user_id == User.id,
+                )
             if conditions:
                 count_query = count_query.where(*conditions)
                 orders_query = orders_query.where(*conditions)
+            orders_query = (
+                orders_query.order_by(sort_clause, MoySkladOrder.id.desc())
+                .offset((page - 1) * PAGE_SIZE)
+                .limit(PAGE_SIZE)
+            )
 
             total = db.scalar(count_query) or 0
             orders = list(db.scalars(orders_query))
@@ -305,6 +484,45 @@ def create_web_router(
                 if current_user.is_admin
                 else []
             )
+
+            filter_params: dict[str, str | int] = {}
+            if q:
+                filter_params["q"] = q
+            if device:
+                filter_params["device"] = device
+            if processing_plan:
+                filter_params["processing_plan"] = processing_plan
+            if state:
+                filter_params["state"] = state
+            if current_user.is_admin and selected_user_id is not None:
+                filter_params["user_id"] = selected_user_id
+            if moment_from is not None:
+                filter_params["moment_from"] = moment_from.isoformat()
+            if moment_to is not None:
+                filter_params["moment_to"] = moment_to.isoformat()
+            if delivery_from is not None:
+                filter_params["delivery_from"] = delivery_from.isoformat()
+            if delivery_to is not None:
+                filter_params["delivery_to"] = delivery_to.isoformat()
+
+            current_params = {
+                **filter_params,
+                "sort": sort,
+                "direction": direction,
+            }
+            sort_urls = {}
+            for key in _ORDER_SORT_KEYS:
+                next_direction = (
+                    "desc" if sort == key and direction == "asc" else "asc"
+                )
+                sort_urls[key] = _orders_url(
+                    {
+                        **filter_params,
+                        "sort": key,
+                        "direction": next_direction,
+                    }
+                )
+            total_pages = max(1, math.ceil(total / PAGE_SIZE))
             return template(
                 request,
                 "orders.html",
@@ -314,11 +532,40 @@ def create_web_router(
                     "orders": orders,
                     "order_readiness": order_readiness,
                     "users": users,
+                    "state_options": state_options,
+                    "has_orders_without_state": has_orders_without_state,
+                    "no_state_filter": _NO_STATE_FILTER,
                     "selected_user": selected_user,
                     "selected_user_id": selected_user_id,
+                    "filters": {
+                        "q": q,
+                        "device": device,
+                        "processing_plan": processing_plan,
+                        "state": state,
+                        "moment_from": moment_from.isoformat() if moment_from else "",
+                        "moment_to": moment_to.isoformat() if moment_to else "",
+                        "delivery_from": (
+                            delivery_from.isoformat() if delivery_from else ""
+                        ),
+                        "delivery_to": delivery_to.isoformat() if delivery_to else "",
+                    },
+                    "active_filters": bool(filter_params),
+                    "sort": sort,
+                    "direction": direction,
+                    "sort_urls": sort_urls,
                     "page": page,
                     "total": total,
-                    "total_pages": max(1, math.ceil(total / PAGE_SIZE)),
+                    "total_pages": total_pages,
+                    "previous_page_url": (
+                        _orders_url({**current_params, "page": page - 1})
+                        if page > 1
+                        else None
+                    ),
+                    "next_page_url": (
+                        _orders_url({**current_params, "page": page + 1})
+                        if page < total_pages
+                        else None
+                    ),
                 },
             )
 

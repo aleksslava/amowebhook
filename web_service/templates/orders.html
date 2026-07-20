@@ -1,5 +1,12 @@
 {% extends "base.html" %}
 {% from "_readiness.html" import readiness %}
+{% macro sortable_header(key, label, numeric=false) %}
+<th{% if numeric %} class="numeric"{% endif %}{% if sort == key %} aria-sort="{{ 'ascending' if direction == 'asc' else 'descending' }}"{% endif %}>
+    <a class="sort-link{% if sort == key %} active{% endif %}" href="{{ sort_urls[key] }}">
+        {{ label }}{% if sort == key %}<span class="sort-indicator" aria-hidden="true">{{ '↑' if direction == 'asc' else '↓' }}</span>{% endif %}
+    </a>
+</th>
+{% endmacro %}
 {% block title %}Заказы · Производство{% endblock %}
 {% block content %}
 <header class="page-heading">
@@ -8,34 +15,84 @@
         <h1>{% if selected_user %}Заказы: {{ selected_user.name }}{% else %}Заказы на производство{% endif %}</h1>
         <p class="muted">{{ total }} {{ 'заказ' if total == 1 else 'заказов' }}</p>
     </div>
-    {% if current_user.is_admin %}
-    <form method="get" action="/cabinet/orders" class="compact-filter">
-        <label for="user_id">Исполнитель</label>
-        <select id="user_id" name="user_id" onchange="this.form.submit()">
-            <option value="">Все пользователи</option>
-            {% for user in users %}
-            <option value="{{ user.id }}" {% if selected_user_id == user.id %}selected{% endif %}>{{ user.name }}{% if not user.is_active %} · отключён{% endif %}</option>
-            {% endfor %}
-        </select>
-        <noscript><button type="submit">Показать</button></noscript>
-    </form>
-    {% endif %}
 </header>
+
+<form method="get" action="/cabinet/orders" class="order-filters">
+    <input type="hidden" name="sort" value="{{ sort }}">
+    <input type="hidden" name="direction" value="{{ direction }}">
+    <div class="filter-grid">
+        <label>
+            <span>Заказ или код</span>
+            <input type="search" name="q" value="{{ filters.q }}" maxlength="255" placeholder="Поиск">
+        </label>
+        <label>
+            <span>Устройство</span>
+            <input type="search" name="device" value="{{ filters.device }}" maxlength="255" placeholder="Часть наименования">
+        </label>
+        <label>
+            <span>Технологическая карта</span>
+            <input type="search" name="processing_plan" value="{{ filters.processing_plan }}" maxlength="255" placeholder="Часть наименования">
+        </label>
+        {% if current_user.is_admin %}
+        <label>
+            <span>Исполнитель</span>
+            <select name="user_id">
+                <option value="">Все пользователи</option>
+                {% for user in users %}
+                <option value="{{ user.id }}" {% if selected_user_id == user.id %}selected{% endif %}>{{ user.name }}{% if not user.is_active %} · отключён{% endif %}</option>
+                {% endfor %}
+            </select>
+        </label>
+        {% endif %}
+        <label>
+            <span>Статус</span>
+            <select name="state">
+                <option value="">Все статусы</option>
+                {% for state_name in state_options %}
+                <option value="{{ state_name }}" {% if filters.state == state_name %}selected{% endif %}>{{ state_name }}</option>
+                {% endfor %}
+                {% if has_orders_without_state or filters.state == no_state_filter %}
+                <option value="{{ no_state_filter }}" {% if filters.state == no_state_filter %}selected{% endif %}>Без статуса</option>
+                {% endif %}
+            </select>
+        </label>
+        <label>
+            <span>Дата заказа от</span>
+            <input type="date" name="moment_from" value="{{ filters.moment_from }}">
+        </label>
+        <label>
+            <span>Дата заказа до</span>
+            <input type="date" name="moment_to" value="{{ filters.moment_to }}">
+        </label>
+        <label>
+            <span>План производства от</span>
+            <input type="date" name="delivery_from" value="{{ filters.delivery_from }}">
+        </label>
+        <label>
+            <span>План производства до</span>
+            <input type="date" name="delivery_to" value="{{ filters.delivery_to }}">
+        </label>
+    </div>
+    <div class="filter-actions">
+        <button class="primary-button" type="submit">Применить</button>
+        <a class="secondary-button" href="/cabinet/orders">Сбросить</a>
+    </div>
+</form>
 
 {% if orders %}
 <div class="table-scroll">
     <table class="data-table">
         <thead>
         <tr>
-            <th>Заказ</th>
-            <th>Устройство</th>
-            <th>Технологическая карта</th>
-            {% if current_user.is_admin %}<th>Исполнитель</th>{% endif %}
-            <th>Статус</th>
-            <th>Дата заказа</th>
-            <th>План производства</th>
-            <th class="numeric">Объём</th>
-            <th>Готовность</th>
+            {{ sortable_header('order', 'Заказ') }}
+            {{ sortable_header('device', 'Устройство') }}
+            {{ sortable_header('processing_plan', 'Технологическая карта') }}
+            {% if current_user.is_admin %}{{ sortable_header('performer', 'Исполнитель') }}{% endif %}
+            {{ sortable_header('state', 'Статус') }}
+            {{ sortable_header('moment', 'Дата заказа') }}
+            {{ sortable_header('delivery', 'План производства') }}
+            {{ sortable_header('quantity', 'Объём', true) }}
+            {{ sortable_header('readiness', 'Готовность') }}
         </tr>
         </thead>
         <tbody>
@@ -63,17 +120,21 @@
 
 {% if total_pages > 1 %}
 <nav class="pagination" aria-label="Страницы заказов">
-    {% set suffix = '&user_id=' ~ selected_user_id if selected_user_id else '' %}
-    {% if page > 1 %}<a href="?page={{ page - 1 }}{{ suffix }}">← Назад</a>{% else %}<span></span>{% endif %}
+    {% if previous_page_url %}<a href="{{ previous_page_url }}">← Назад</a>{% else %}<span></span>{% endif %}
     <span>{{ page }} из {{ total_pages }}</span>
-    {% if page < total_pages %}<a href="?page={{ page + 1 }}{{ suffix }}">Далее →</a>{% else %}<span></span>{% endif %}
+    {% if next_page_url %}<a href="{{ next_page_url }}">Далее →</a>{% else %}<span></span>{% endif %}
 </nav>
 {% endif %}
 {% else %}
 <div class="empty-state">
     <p class="eyebrow">Пока пусто</p>
     <h2>Заказы не найдены</h2>
+    {% if active_filters %}
+    <p class="muted">По заданным фильтрам совпадений нет.</p>
+    <p><a class="secondary-button" href="/cabinet/orders">Сбросить фильтры</a></p>
+    {% else %}
     <p class="muted">Они появятся здесь после синхронизации с МоимСкладом.</p>
+    {% endif %}
 </div>
 {% endif %}
 {% endblock %}

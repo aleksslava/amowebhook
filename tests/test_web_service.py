@@ -1,7 +1,9 @@
+import html
 import re
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
+from urllib.parse import parse_qs, urlsplit
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -59,13 +61,18 @@ class WebServiceTests(unittest.TestCase):
             self.alice_id = alice.id
             self.bob_id = bob.id
             alice_order = self.make_order("Заказ Алисы", alice.id, "order-alice")
+            alice_order.code = "AL-42"
             alice_order.device_name = "Устройство Алисы"
             alice_order.processing_plan_name = "Техкарта Алисы"
             alice_order.state_name = "Готово"
             bob_order = self.make_order("Заказ Бориса", bob.id, "order-bob")
+            bob_order.device_name = "Устройство Бориса"
+            bob_order.processing_plan_name = "Техкарта Бориса"
+            bob_order.state_name = "Планируется"
             external_order = self.make_order("Заказ внешнего", None, "order-external")
             external_order.performer_name = "Внешний исполнитель"
             unassigned_order = self.make_order("Заказ без исполнителя", None, "order-unassigned")
+            unassigned_order.state_name = None
             db.add_all([alice_order, bob_order, external_order, unassigned_order])
             db.flush()
             self.alice_order_id = alice_order.id
@@ -215,13 +222,10 @@ class WebServiceTests(unittest.TestCase):
 
         order_list = self.client.get("/cabinet/orders")
         self.assertEqual(order_list.status_code, 200)
-        self.assertNotIn("<th>Исполнитель</th>", order_list.text)
-        self.assertRegex(
-            order_list.text,
-            r"<th>Заказ</th>\s*<th>Устройство</th>\s*"
-            r"<th>Технологическая карта</th>",
-        )
-        self.assertIn("<th>Готовность</th>", order_list.text)
+        self.assertNotIn("sort=performer", order_list.text)
+        self.assertIn("sort=order&amp;direction=asc", order_list.text)
+        self.assertIn("sort=processing_plan&amp;direction=asc", order_list.text)
+        self.assertIn("sort=readiness&amp;direction=asc", order_list.text)
         self.assertIn("Устройство Алисы", order_list.text)
         self.assertIn("Техкарта Алисы", order_list.text)
         self.assertIn("Заказ Алисы", order_list.text)
@@ -259,12 +263,10 @@ class WebServiceTests(unittest.TestCase):
     def test_admin_sees_all_orders_and_can_filter_by_user(self):
         self.login("Администратор", "admin-password")
         order_list = self.client.get("/cabinet/orders")
-        self.assertRegex(
-            order_list.text,
-            r"<th>Заказ</th>\s*<th>Устройство</th>\s*"
-            r"<th>Технологическая карта</th>\s*<th>Исполнитель</th>",
-        )
-        self.assertIn("<th>Готовность</th>", order_list.text)
+        self.assertIn("sort=order&amp;direction=asc", order_list.text)
+        self.assertIn("sort=processing_plan&amp;direction=asc", order_list.text)
+        self.assertIn("sort=performer&amp;direction=asc", order_list.text)
+        self.assertIn("sort=readiness&amp;direction=asc", order_list.text)
         self.assertIn('data-label="Устройство">—</td>', order_list.text)
         self.assertIn(
             'data-label="Технологическая карта">—</td>',
@@ -288,6 +290,185 @@ class WebServiceTests(unittest.TestCase):
             422,
         )
         self.assertEqual(self.client.get("/cabinet/orders?user_id=0").status_code, 422)
+
+    def test_order_filters_cover_text_state_dates_and_access(self):
+        self.login("Администратор", "admin-password")
+
+        cases = [
+            ("q=алис", "Заказ Алисы", "Заказ Бориса"),
+            ("q=al-42", "Заказ Алисы", "Заказ Бориса"),
+            ("device=АЛИСЫ", "Заказ Алисы", "Заказ Бориса"),
+            ("processing_plan=карта+алисы", "Заказ Алисы", "Заказ Бориса"),
+            ("state=Готово", "Заказ Алисы", "Заказ Бориса"),
+            ("state=__none__", "Заказ без исполнителя", "Заказ Алисы"),
+            (f"user_id={self.bob_id}", "Заказ Бориса", "Заказ Алисы"),
+            (
+                "moment_from=2026-07-17&moment_to=2026-07-17"
+                "&delivery_from=2026-07-17&delivery_to=2026-07-17",
+                "Заказ Алисы",
+                None,
+            ),
+        ]
+        for query, included, excluded in cases:
+            with self.subTest(query=query):
+                response = self.client.get(f"/cabinet/orders?{query}")
+                self.assertEqual(response.status_code, 200)
+                self.assertIn(included, response.text)
+                if excluded is not None:
+                    self.assertNotIn(excluded, response.text)
+
+        combined = self.client.get(
+            "/cabinet/orders?q=заказ&device=устройство&processing_plan=техкарта"
+            f"&state=Готово&user_id={self.alice_id}"
+            "&moment_from=2026-07-17&moment_to=2026-07-17"
+        )
+        self.assertIn("Заказ Алисы", combined.text)
+        self.assertNotIn("Заказ Бориса", combined.text)
+
+        empty = self.client.get("/cabinet/orders?q=несуществующий")
+        self.assertIn("По заданным фильтрам совпадений нет", empty.text)
+        self.assertIn("Сбросить фильтры", empty.text)
+        wildcard = self.client.get("/cabinet/orders?q=%25")
+        self.assertNotIn("Заказ Алисы", wildcard.text)
+
+        regular_client = TestClient(self.app)
+        try:
+            self.login("Алиса", "alice-password", client=regular_client)
+            hidden = regular_client.get("/cabinet/orders?q=Бориса")
+            self.assertNotIn("Заказ Бориса", hidden.text)
+            self.assertNotIn('name="user_id"', hidden.text)
+        finally:
+            regular_client.close()
+
+    def test_order_filter_and_sort_validation(self):
+        self.login("Администратор", "admin-password")
+        invalid_queries = [
+            "sort=unknown",
+            "direction=sideways",
+            "moment_from=not-a-date",
+            "moment_from=2026-07-18&moment_to=2026-07-17",
+            "delivery_from=2026-07-18&delivery_to=2026-07-17",
+        ]
+        for query in invalid_queries:
+            with self.subTest(query=query):
+                self.assertEqual(
+                    self.client.get(f"/cabinet/orders?{query}").status_code,
+                    422,
+                )
+
+    def test_sorts_every_order_column_in_both_directions(self):
+        with self.Session.begin() as db:
+            alice = db.get(MoySkladOrder, self.alice_order_id)
+            bob = db.get(MoySkladOrder, self.bob_order_id)
+            unassigned = db.get(MoySkladOrder, self.unassigned_order_id)
+            alice.name = "A order"
+            alice.device_name = "A device"
+            alice.processing_plan_name = "A plan"
+            alice.state_name = "A state"
+            alice.moment = datetime(2026, 7, 16, 12, 0)
+            alice.delivery_planned_moment = datetime(2026, 7, 18, 12, 0)
+            alice.production_quantity = Decimal("1")
+            alice.produced_quantity = Decimal("0")
+            bob.name = "B order"
+            bob.device_name = "B device"
+            bob.processing_plan_name = "B plan"
+            bob.state_name = "B state"
+            bob.moment = datetime(2026, 7, 17, 12, 0)
+            bob.delivery_planned_moment = datetime(2026, 7, 19, 12, 0)
+            bob.production_quantity = Decimal("2")
+            bob.produced_quantity = Decimal("2")
+            unassigned.production_quantity = Decimal("0")
+            unassigned.produced_quantity = Decimal("5")
+
+        self.login("Администратор", "admin-password")
+        for key in (
+            "order",
+            "device",
+            "processing_plan",
+            "performer",
+            "state",
+            "moment",
+            "delivery",
+            "quantity",
+            "readiness",
+        ):
+            with self.subTest(sort=key, direction="asc"):
+                ascending = self.client.get(
+                    f"/cabinet/orders?sort={key}&direction=asc"
+                )
+                self.assertLess(
+                    ascending.text.index("A order"),
+                    ascending.text.index("B order"),
+                )
+            with self.subTest(sort=key, direction="desc"):
+                descending = self.client.get(
+                    f"/cabinet/orders?sort={key}&direction=desc"
+                )
+                self.assertLess(
+                    descending.text.index("B order"),
+                    descending.text.index("A order"),
+                )
+
+        nulls_last = self.client.get("/cabinet/orders?sort=device&direction=asc")
+        self.assertGreater(
+            nulls_last.text.index("Заказ внешнего"),
+            nulls_last.text.index("B order"),
+        )
+        stable = self.client.get("/cabinet/orders?sort=moment&direction=asc")
+        self.assertLess(
+            stable.text.index("Заказ без исполнителя"),
+            stable.text.index("Заказ внешнего"),
+        )
+
+    def test_filter_and_sort_parameters_survive_sorting_and_pagination(self):
+        with self.Session.begin() as db:
+            for index in range(26):
+                order = self.make_order(
+                    f"Страница {index:02d}",
+                    self.alice_id,
+                    f"page-order-{index}",
+                )
+                order.device_name = "Общее устройство"
+                order.processing_plan_name = "Общая карта"
+                order.state_name = "Планируется"
+                order.moment += timedelta(minutes=index)
+                db.add(order)
+
+        self.login("Администратор", "admin-password")
+        response = self.client.get(
+            "/cabinet/orders?q=Страница&device=Общее&processing_plan=Общая"
+            "&state=Планируется&sort=order&direction=asc"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("1 из 2", response.text)
+
+        next_match = re.search(r'href="([^"]+)">Далее', response.text)
+        self.assertIsNotNone(next_match)
+        next_params = parse_qs(urlsplit(html.unescape(next_match.group(1))).query)
+        self.assertEqual(
+            next_params,
+            {
+                "q": ["Страница"],
+                "device": ["Общее"],
+                "processing_plan": ["Общая"],
+                "state": ["Планируется"],
+                "sort": ["order"],
+                "direction": ["asc"],
+                "page": ["2"],
+            },
+        )
+
+        sort_match = re.search(
+            r'href="([^"]*sort=device[^"]*)"',
+            response.text,
+        )
+        self.assertIsNotNone(sort_match)
+        sort_params = parse_qs(urlsplit(html.unescape(sort_match.group(1))).query)
+        self.assertEqual(sort_params["q"], ["Страница"])
+        self.assertEqual(sort_params["processing_plan"], ["Общая"])
+        self.assertEqual(sort_params["sort"], ["device"])
+        self.assertEqual(sort_params["direction"], ["asc"])
+        self.assertNotIn("page", sort_params)
 
     def test_user_saves_produced_and_partial_spent_quantities(self):
         self.login("Алиса", "alice-password")
