@@ -315,6 +315,86 @@ class MoySkladClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(seen_queries[1][1]["limit"], "100")
         self.assertEqual(seen_queries[2][1]["offset"], "100")
 
+    async def test_fetches_order_edit_catalogs_and_updates_processing_order(self):
+        requests = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(
+                (
+                    request.method,
+                    request.url.path,
+                    dict(request.url.params),
+                    json.loads(request.content) if request.content else None,
+                )
+            )
+            if request.method == "PUT":
+                return httpx.Response(
+                    200,
+                    json={"id": "order-id", "quantity": 7},
+                )
+            return httpx.Response(
+                200,
+                json={
+                    "rows": [
+                        {
+                            "id": "row-id",
+                            "name": "Row",
+                            "meta": {"href": str(request.url), "type": "entity"},
+                        }
+                    ],
+                    "meta": {},
+                },
+            )
+
+        client = MoySkladClient(
+            token="token",
+            base_url="https://example.test/api/remap/1.2",
+            transport=httpx.MockTransport(handler),
+        )
+        attributes = await client.fetch_processing_order_attributes()
+        employees = await client.fetch_active_employees()
+        plans = await client.fetch_active_processing_plans()
+        devices = await client.fetch_custom_entity_rows(
+            "https://example.test/api/remap/1.2/entity/customentity/devices/metadata"
+        )
+        updated = await client.update_processing_order(
+            "order-id",
+            {"quantity": 7},
+        )
+        await client.close()
+
+        self.assertEqual(attributes[0]["id"], "row-id")
+        self.assertEqual(employees[0]["id"], "row-id")
+        self.assertEqual(plans[0]["id"], "row-id")
+        self.assertEqual(devices[0]["id"], "row-id")
+        self.assertEqual(updated["quantity"], 7)
+        self.assertEqual(
+            [request[1] for request in requests],
+            [
+                "/api/remap/1.2/entity/processingorder/metadata/attributes",
+                "/api/remap/1.2/entity/employee",
+                "/api/remap/1.2/entity/processingplan",
+                "/api/remap/1.2/entity/customentity/devices",
+                "/api/remap/1.2/entity/processingorder/order-id",
+            ],
+        )
+        self.assertEqual(requests[1][2]["filter"], "archived=false")
+        self.assertEqual(requests[1][2]["order"], "name,asc")
+        self.assertEqual(requests[2][2]["filter"], "archived=false")
+        self.assertEqual(requests[4][0], "PUT")
+        self.assertEqual(requests[4][2]["expand"], "processingPlan")
+        self.assertEqual(requests[4][3], {"quantity": 7})
+
+    async def test_rejects_invalid_custom_entity_metadata_href(self):
+        client = MoySkladClient(
+            token="token",
+            base_url="https://example.test/api/remap/1.2",
+        )
+        with self.assertRaisesRegex(ValueError, "must end with /metadata"):
+            await client.fetch_custom_entity_rows(
+                "https://example.test/api/remap/1.2/entity/customentity/devices"
+            )
+
 
 class MoySkladWebhookTests(unittest.IsolatedAsyncioTestCase):
     async def test_creates_both_webhooks_once_and_then_reuses_them(self):

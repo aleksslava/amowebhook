@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+import asyncio
 import hmac
+import logging
 import math
 import re
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from decimal import Decimal, ROUND_FLOOR, ROUND_HALF_UP
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable, Mapping, Sequence
 from urllib.parse import urlencode, urlsplit
 
+from anyio import from_thread
 from fastapi import APIRouter, Form, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
@@ -18,6 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from models import MoySkladOrder, OrderItem, OrderSuborder, User
+from settings.moy_sklad import MoySkladAPIError, MoySkladClient
 from web_service.auth import (
     LOGIN_CSRF_COOKIE,
     SESSION_COOKIE,
@@ -30,6 +34,7 @@ from web_service.auth import (
 
 
 PACKAGE_DIR = Path(__file__).resolve().parent
+logger = logging.getLogger(__name__)
 templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
 PAGE_SIZE = 25
 MAX_LOCAL_QUANTITY = 999_999_999_999
@@ -37,6 +42,7 @@ MAX_BATCH_SUBORDERS = 1000
 _INTEGER_PATTERN = re.compile(r"^[0-9]+$")
 _DATE_PATTERN = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 _NO_STATE_FILTER = "__none__"
+_KEEP_CURRENT = "__keep__"
 _ORDER_SORT_KEYS = {
     "order",
     "device",
@@ -65,6 +71,33 @@ class Readiness:
     label: str
     width: str
     complete: bool
+
+
+@dataclass(frozen=True)
+class MoySkladOption:
+    id: str
+    name: str
+    meta: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class PerformerOption:
+    user_id: int
+    name: str
+    employee: MoySkladOption
+
+
+@dataclass(frozen=True)
+class OrderEditCatalogs:
+    performer_attribute_meta: dict[str, Any]
+    device_attribute_meta: dict[str, Any]
+    employees: tuple[MoySkladOption, ...]
+    devices: tuple[MoySkladOption, ...]
+    processing_plans: tuple[MoySkladOption, ...]
+
+
+class OrderEditConfigurationError(ValueError):
+    pass
 
 
 def _format_datetime(value: datetime | None) -> str:
@@ -177,6 +210,144 @@ def _parse_required_date(value: str, field_name: str) -> date:
     return parsed
 
 
+def _required_attribute_meta(
+    attributes: Sequence[Mapping[str, Any]],
+    name: str,
+    expected_type: str,
+) -> Mapping[str, Any]:
+    matches = [attribute for attribute in attributes if attribute.get("name") == name]
+    if len(matches) != 1:
+        raise OrderEditConfigurationError(
+            f'В МоемСкладе должно быть ровно одно поле «{name}»'
+        )
+    attribute = matches[0]
+    if attribute.get("type") != expected_type:
+        raise OrderEditConfigurationError(
+            f'Поле «{name}» должно иметь тип {expected_type}'
+        )
+    meta = attribute.get("meta")
+    if not isinstance(meta, Mapping) or not isinstance(meta.get("href"), str):
+        raise OrderEditConfigurationError(f'У поля «{name}» отсутствуют метаданные')
+    return attribute
+
+
+def _moysklad_option(row: Mapping[str, Any], label: str) -> MoySkladOption:
+    entity_id = row.get("id")
+    name = row.get("name")
+    meta = row.get("meta")
+    if (
+        not isinstance(entity_id, str)
+        or not entity_id
+        or not isinstance(name, str)
+        or not name
+        or not isinstance(meta, Mapping)
+        or not isinstance(meta.get("href"), str)
+    ):
+        raise OrderEditConfigurationError(
+            f"Справочник «{label}» вернул некорректный элемент"
+        )
+    return MoySkladOption(entity_id, name, dict(meta))
+
+
+def _moysklad_options(
+    rows: Sequence[Mapping[str, Any]],
+    label: str,
+) -> tuple[MoySkladOption, ...]:
+    options = [
+        _moysklad_option(row, label)
+        for row in rows
+        if row.get("archived") is not True
+    ]
+    options.sort(key=lambda option: (option.name.casefold(), option.id))
+    return tuple(options)
+
+
+async def _load_order_edit_catalogs(
+    client: MoySkladClient,
+) -> OrderEditCatalogs:
+    attributes = await client.fetch_processing_order_attributes()
+    performer_attribute = _required_attribute_meta(
+        attributes,
+        "Исполнитель",
+        "employee",
+    )
+    device_attribute = _required_attribute_meta(
+        attributes,
+        "Устройство",
+        "customentity",
+    )
+    custom_entity_meta = device_attribute.get("customEntityMeta")
+    custom_entity_href = (
+        custom_entity_meta.get("href")
+        if isinstance(custom_entity_meta, Mapping)
+        else None
+    )
+    if not isinstance(custom_entity_href, str) or not custom_entity_href:
+        raise OrderEditConfigurationError(
+            "У поля «Устройство» не указан пользовательский справочник"
+        )
+
+    employees, devices, processing_plans = await asyncio.gather(
+        client.fetch_active_employees(),
+        client.fetch_custom_entity_rows(custom_entity_href),
+        client.fetch_active_processing_plans(),
+    )
+    return OrderEditCatalogs(
+        performer_attribute_meta=dict(performer_attribute["meta"]),
+        device_attribute_meta=dict(device_attribute["meta"]),
+        employees=_moysklad_options(employees, "Сотрудники"),
+        devices=_moysklad_options(devices, "Устройства"),
+        processing_plans=_moysklad_options(
+            processing_plans,
+            "Технологические карты",
+        ),
+    )
+
+
+def _performer_options(
+    users: Sequence[User],
+    employees: Sequence[MoySkladOption],
+) -> tuple[PerformerOption, ...]:
+    employees_by_name: dict[str, list[MoySkladOption]] = {}
+    for employee in employees:
+        employees_by_name.setdefault(employee.name, []).append(employee)
+    return tuple(
+        PerformerOption(user.id, user.name, employees_by_name[user.name][0])
+        for user in users
+        if user.is_active and len(employees_by_name.get(user.name, ())) == 1
+    )
+
+
+def _unique_option_by_name(
+    options: Sequence[MoySkladOption],
+    name: str | None,
+) -> MoySkladOption | None:
+    matches = [option for option in options if option.name == name]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _option_by_id(
+    options: Sequence[MoySkladOption],
+    option_id: str,
+    field_name: str,
+) -> MoySkladOption:
+    if not option_id or len(option_id) > 64:
+        raise HTTPException(status_code=400, detail=f"Invalid {field_name}")
+    matches = [option for option in options if option.id == option_id]
+    if len(matches) != 1:
+        raise HTTPException(status_code=400, detail=f"Invalid {field_name}")
+    return matches[0]
+
+
+def _moysklad_response_datetime(value: Any) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
 templates.env.filters["datetime"] = _format_datetime
 templates.env.filters["date"] = _format_date
 templates.env.filters["number"] = _format_number
@@ -186,6 +357,7 @@ templates.env.filters["order_status_class"] = _order_status_class
 def create_web_router(
     session_factory: Callable[[], Session],
     *,
+    moysklad_client: MoySkladClient,
     session_secret: str | None,
     cookie_secure: bool,
 ) -> APIRouter:
@@ -384,6 +556,8 @@ def create_web_router(
             max_length=10,
         ),
         expanded_order_id: int | None = Query(None, alias="expanded", ge=1),
+        editing_order_id: int | None = Query(None, alias="editing", ge=1),
+        saved_order_id: int | None = Query(None, alias="order_saved", ge=1),
         sort: str = Query(
             "moment",
             pattern=(
@@ -645,6 +819,89 @@ def create_web_router(
                 if current_user.is_admin
                 else []
             )
+            editing_order = (
+                next(
+                    (
+                        order
+                        for order in orders
+                        if order.id == editing_order_id
+                    ),
+                    None,
+                )
+                if current_user.is_admin
+                else None
+            )
+            order_edit = None
+            order_edit_error = None
+            if editing_order is not None:
+                try:
+                    catalogs = from_thread.run(
+                        _load_order_edit_catalogs,
+                        moysklad_client,
+                    )
+                    available_performers = _performer_options(
+                        users,
+                        catalogs.employees,
+                    )
+                    available_user_ids = {
+                        option.user_id for option in available_performers
+                    }
+                    selected_device = _unique_option_by_name(
+                        catalogs.devices,
+                        editing_order.device_name,
+                    )
+                    selected_processing_plan = _unique_option_by_name(
+                        catalogs.processing_plans,
+                        editing_order.processing_plan_name,
+                    )
+                    performer_name = (
+                        editing_order.user.name
+                        if editing_order.user is not None
+                        else editing_order.performer_name
+                    )
+                    order_edit = {
+                        "performers": available_performers,
+                        "devices": catalogs.devices,
+                        "processing_plans": catalogs.processing_plans,
+                        "selected_user_id": (
+                            editing_order.user_id
+                            if editing_order.user_id in available_user_ids
+                            else None
+                        ),
+                        "selected_device_id": (
+                            selected_device.id if selected_device else None
+                        ),
+                        "selected_processing_plan_id": (
+                            selected_processing_plan.id
+                            if selected_processing_plan
+                            else None
+                        ),
+                        "keep_performer": bool(performer_name)
+                        and editing_order.user_id not in available_user_ids,
+                        "keep_device": bool(editing_order.device_name)
+                        and selected_device is None,
+                        "keep_processing_plan": bool(
+                            editing_order.processing_plan_name
+                        )
+                        and selected_processing_plan is None,
+                        "performer_name": performer_name,
+                        "device_name": editing_order.device_name,
+                        "processing_plan_name": (
+                            editing_order.processing_plan_name
+                        ),
+                    }
+                except OrderEditConfigurationError as error:
+                    logger.warning(
+                        "MoySklad order editor configuration error: %s",
+                        error,
+                    )
+                    order_edit_error = str(error)
+                except (MoySkladAPIError, RuntimeError, ValueError):
+                    logger.exception("Failed to load MoySklad order editor catalogs")
+                    order_edit_error = (
+                        "Не удалось загрузить справочники МоегоСклада. "
+                        "Попробуйте позже."
+                    )
 
             filter_params: dict[str, str | int] = {}
             if q:
@@ -679,6 +936,12 @@ def create_web_router(
             expand_urls = {
                 order.id: _orders_url(
                     {**page_params, "expanded": order.id}
+                )
+                for order in orders
+            }
+            edit_urls = {
+                order.id: _orders_url(
+                    {**page_params, "editing": order.id}
                 )
                 for order in orders
             }
@@ -742,6 +1005,16 @@ def create_web_router(
                         else collapse_url
                     ),
                     "split_disabled_reasons": split_disabled_reasons,
+                    "editing_order_id": (
+                        editing_order.id if editing_order is not None else None
+                    ),
+                    "order_edit": order_edit,
+                    "order_edit_error": order_edit_error,
+                    "keep_current_value": _KEEP_CURRENT,
+                    "edit_urls": edit_urls,
+                    "edit_close_url": collapse_url,
+                    "edit_return_url": collapse_url,
+                    "saved_order_id": saved_order_id,
                     "page": page,
                     "total": total,
                     "total_pages": total_pages,
@@ -757,6 +1030,185 @@ def create_web_router(
                     ),
                 },
             )
+
+    @router.post("/orders/{order_id}/edit", include_in_schema=False)
+    def edit_order(
+        request: Request,
+        order_id: int,
+        user_id: str = Form(""),
+        device_id: str = Form(""),
+        processing_plan_id: str = Form(""),
+        production_quantity: str = Form(""),
+        csrf_token: str = Form(...),
+        return_url: str = Form(""),
+    ) -> Response:
+        with session_factory() as db:
+            auth = require_user(request, db)
+            if isinstance(auth, Response):
+                return auth
+            current_user, web_session = auth
+            order = admin_order(db, current_user, order_id)
+            require_csrf(web_session, csrf_token)
+
+            parsed_quantity = _parse_local_quantity(
+                production_quantity,
+                "Production quantity",
+            )
+            if parsed_quantity <= 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Production quantity must be positive",
+                )
+
+            try:
+                catalogs = from_thread.run(
+                    _load_order_edit_catalogs,
+                    moysklad_client,
+                )
+            except OrderEditConfigurationError as error:
+                raise HTTPException(status_code=503, detail=str(error)) from error
+            except (MoySkladAPIError, RuntimeError, ValueError) as error:
+                logger.exception("Failed to load MoySklad order edit catalogs")
+                raise HTTPException(
+                    status_code=502,
+                    detail="MoySklad catalogs are unavailable",
+                ) from error
+
+            selected_user = None
+            selected_employee = None
+            if user_id != _KEEP_CURRENT:
+                if user_id:
+                    if not _INTEGER_PATTERN.fullmatch(user_id):
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Invalid user",
+                        )
+                    parsed_user_id = int(user_id)
+                    if parsed_user_id > 9_223_372_036_854_775_807:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Invalid user",
+                        )
+                    selected_user = db.get(User, parsed_user_id)
+                    if selected_user is None or not selected_user.is_active:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Invalid user",
+                        )
+                    matches = [
+                        employee
+                        for employee in catalogs.employees
+                        if employee.name == selected_user.name
+                    ]
+                    if len(matches) != 1:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="User is not uniquely matched to a MoySklad employee",
+                        )
+                    selected_employee = matches[0]
+
+            selected_device = None
+            if device_id != _KEEP_CURRENT and device_id:
+                selected_device = _option_by_id(
+                    catalogs.devices,
+                    device_id,
+                    "device",
+                )
+
+            selected_processing_plan = None
+            if processing_plan_id != _KEEP_CURRENT and processing_plan_id:
+                selected_processing_plan = _option_by_id(
+                    catalogs.processing_plans,
+                    processing_plan_id,
+                    "processing plan",
+                )
+
+            attributes = []
+            if user_id != _KEEP_CURRENT:
+                attributes.append(
+                    {
+                        "meta": catalogs.performer_attribute_meta,
+                        "value": (
+                            {"meta": selected_employee.meta}
+                            if selected_employee is not None
+                            else None
+                        ),
+                    }
+                )
+            if device_id != _KEEP_CURRENT:
+                attributes.append(
+                    {
+                        "meta": catalogs.device_attribute_meta,
+                        "value": (
+                            {"meta": selected_device.meta}
+                            if selected_device is not None
+                            else None
+                        ),
+                    }
+                )
+
+            update_payload: dict[str, Any] = {
+                "quantity": int(parsed_quantity),
+            }
+            if attributes:
+                update_payload["attributes"] = attributes
+            if processing_plan_id != _KEEP_CURRENT:
+                update_payload["processingPlan"] = (
+                    {"meta": selected_processing_plan.meta}
+                    if selected_processing_plan is not None
+                    else None
+                )
+
+            try:
+                updated_payload = from_thread.run(
+                    moysklad_client.update_processing_order,
+                    order.moysklad_id,
+                    update_payload,
+                )
+            except (MoySkladAPIError, RuntimeError, ValueError) as error:
+                logger.exception(
+                    "Failed to update MoySklad processing order order_id=%s",
+                    order.moysklad_id,
+                )
+                raise HTTPException(
+                    status_code=502,
+                    detail="MoySklad order update failed",
+                ) from error
+
+            order.production_quantity = parsed_quantity
+            if user_id != _KEEP_CURRENT:
+                order.user_id = selected_user.id if selected_user is not None else None
+                order.performer_name = (
+                    selected_employee.name if selected_employee is not None else None
+                )
+            if device_id != _KEEP_CURRENT:
+                order.device_name = (
+                    selected_device.name if selected_device is not None else None
+                )
+            if processing_plan_id != _KEEP_CURRENT:
+                order.processing_plan_name = (
+                    selected_processing_plan.name
+                    if selected_processing_plan is not None
+                    else None
+                )
+            raw_payload = dict(order.raw_payload or {})
+            raw_payload.update(updated_payload)
+            order.raw_payload = raw_payload
+            response_updated_at = _moysklad_response_datetime(
+                updated_payload.get("updated")
+            )
+            if response_updated_at is not None:
+                order.moysklad_updated_at = response_updated_at
+            order.synced_at = datetime.utcnow()
+            db.commit()
+
+        fallback = "/cabinet/orders"
+        safe_return_url = _safe_orders_return_url(return_url, fallback)
+        separator = "&" if "?" in safe_return_url else "?"
+        return RedirectResponse(
+            f"{safe_return_url}{separator}order_saved={order_id}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
 
     @router.get("/orders/{order_id}", include_in_schema=False)
     def order_detail(request: Request, order_id: int) -> Response:

@@ -79,6 +79,8 @@
     </div>
 </form>
 
+{% if saved_order_id %}<p class="notice" role="status">Данные заказа сохранены в МоемСкладе.</p>{% endif %}
+
 {% if orders %}
 <div class="table-scroll">
     <table class="data-table orders-table">
@@ -100,7 +102,7 @@
         {% for order in orders %}
         {% set suborder_count = suborder_counts.get(order.id, 0) %}
         {% set is_expanded = expanded_order_id == order.id %}
-        <tr class="order-row{% if is_expanded %} order-row--expanded{% endif %}">
+        <tr class="order-row{% if is_expanded %} order-row--expanded{% endif %}{% if editing_order_id == order.id %} order-row--editing{% endif %}">
             <td data-label="Заказ">
                 <div class="order-title-cell">
                     {% if suborder_count %}
@@ -121,7 +123,10 @@
             <td data-label="Объём" class="numeric">{{ order.production_quantity|number }}</td>
             <td data-label="Готовность">{{ readiness(order_readiness[order.id]) }}</td>
             <td data-label="Действия" class="actions order-actions">
-                {% if current_user.is_admin and not suborder_count %}
+                {% if current_user.is_admin %}
+                <div class="order-row-actions">
+                    <a class="secondary-button compact-button" href="{{ edit_close_url if editing_order_id == order.id else edit_urls[order.id] }}">{{ 'Закрыть' if editing_order_id == order.id else 'Изменить' }}</a>
+                    {% if not suborder_count %}
                     {% if split_disabled_reasons.get(order.id) %}
                     <span class="action-unavailable" title="{{ split_disabled_reasons[order.id] }}">Недоступно</span>
                     {% else %}
@@ -138,9 +143,77 @@
                         </form>
                     </details>
                     {% endif %}
+                    {% endif %}
+                </div>
                 {% else %}<span class="muted">—</span>{% endif %}
             </td>
         </tr>
+        {% if editing_order_id == order.id %}
+        <tr class="order-edit-row">
+            <td colspan="10">
+                <div class="order-editor">
+                    <div class="order-editor-heading">
+                        <div>
+                            <p class="eyebrow">Редактирование заказа</p>
+                            <h2>{{ order.name }}</h2>
+                        </div>
+                        <a class="secondary-button compact-button" href="{{ edit_close_url }}">Отмена</a>
+                    </div>
+                    {% if order_edit_error %}
+                    <p class="form-error" role="alert">{{ order_edit_error }}</p>
+                    {% elif order_edit %}
+                    <form class="order-edit-form" method="post" action="/cabinet/orders/{{ order.id }}/edit">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <input type="hidden" name="return_url" value="{{ edit_return_url }}">
+                        <label>
+                            <span>Исполнитель</span>
+                            <select name="user_id">
+                                <option value="">Не назначен</option>
+                                {% if order_edit.keep_performer %}
+                                <option value="{{ keep_current_value }}" selected>Оставить текущее: {{ order_edit.performer_name }}</option>
+                                {% endif %}
+                                {% for performer in order_edit.performers %}
+                                <option value="{{ performer.user_id }}"{% if order_edit.selected_user_id == performer.user_id %} selected{% endif %}>{{ performer.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label>
+                            <span>Устройство</span>
+                            <select name="device_id">
+                                <option value="">Не выбрано</option>
+                                {% if order_edit.keep_device %}
+                                <option value="{{ keep_current_value }}" selected>Оставить текущее: {{ order_edit.device_name }}</option>
+                                {% endif %}
+                                {% for device in order_edit.devices %}
+                                <option value="{{ device.id }}"{% if order_edit.selected_device_id == device.id %} selected{% endif %}>{{ device.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label>
+                            <span>Технологическая карта</span>
+                            <select name="processing_plan_id">
+                                <option value="">Не выбрана</option>
+                                {% if order_edit.keep_processing_plan %}
+                                <option value="{{ keep_current_value }}" selected>Оставить текущее: {{ order_edit.processing_plan_name }}</option>
+                                {% endif %}
+                                {% for processing_plan in order_edit.processing_plans %}
+                                <option value="{{ processing_plan.id }}"{% if order_edit.selected_processing_plan_id == processing_plan.id %} selected{% endif %}>{{ processing_plan.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label>
+                            <span>Общий объём</span>
+                            <input type="number" name="production_quantity" value="{{ order.production_quantity|number }}" min="1" max="999999999999" step="1" inputmode="numeric" required>
+                        </label>
+                        <div class="order-edit-actions">
+                            <button class="primary-button" type="submit">Сохранить в МоемСкладе</button>
+                        </div>
+                    </form>
+                    {% endif %}
+                </div>
+            </td>
+        </tr>
+        {% endif %}
         {% if is_expanded %}
             {% for suborder in expanded_suborders %}
             {% set stage_form_id = 'order-list-stage-' ~ suborder.id %}

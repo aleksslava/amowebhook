@@ -4,6 +4,7 @@ import unittest
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from urllib.parse import parse_qs, urlsplit
+from unittest.mock import AsyncMock
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -12,6 +13,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from models import Base, MoySkladOrder, OrderItem, OrderSuborder, User
+from settings.moy_sklad import MoySkladAPIError, MoySkladClient
 from web_service import create_web_router
 from web_service.auth import hash_password, verify_password
 from web_service.router import _order_status_class, calculate_readiness
@@ -31,9 +33,11 @@ class WebServiceTests(unittest.TestCase):
             expire_on_commit=False,
         )
         self.app = FastAPI()
+        self.moysklad_client = AsyncMock(spec=MoySkladClient)
         self.app.include_router(
             create_web_router(
                 self.Session,
+                moysklad_client=self.moysklad_client,
                 session_secret="test-session-secret",
                 cookie_secure=False,
             )
@@ -169,6 +173,93 @@ class WebServiceTests(unittest.TestCase):
         client = client or self.client
         response = client.get("/cabinet/orders")
         return self.csrf_from(response)
+
+    def configure_order_edit_catalogs(self):
+        performer_attribute_meta = {
+            "href": "https://example.test/attributes/performer",
+            "type": "attributemetadata",
+            "mediaType": "application/json",
+        }
+        device_attribute_meta = {
+            "href": "https://example.test/attributes/device",
+            "type": "attributemetadata",
+            "mediaType": "application/json",
+        }
+        self.moysklad_client.fetch_processing_order_attributes.return_value = [
+            {
+                "name": "Исполнитель",
+                "type": "employee",
+                "meta": performer_attribute_meta,
+            },
+            {
+                "name": "Устройство",
+                "type": "customentity",
+                "meta": device_attribute_meta,
+                "customEntityMeta": {
+                    "href": "https://example.test/customentity/devices/metadata",
+                },
+            },
+        ]
+        self.moysklad_client.fetch_active_employees.return_value = [
+            {
+                "id": "employee-alice",
+                "name": "Алиса",
+                "meta": {
+                    "href": "https://example.test/entity/employee/employee-alice",
+                    "type": "employee",
+                },
+            },
+            {
+                "id": "employee-bob",
+                "name": "Борис",
+                "meta": {
+                    "href": "https://example.test/entity/employee/employee-bob",
+                    "type": "employee",
+                },
+            },
+        ]
+        self.moysklad_client.fetch_custom_entity_rows.return_value = [
+            {
+                "id": "device-alice",
+                "name": "Устройство Алисы",
+                "meta": {
+                    "href": "https://example.test/customentity/devices/device-alice",
+                    "type": "customentity",
+                },
+            },
+            {
+                "id": "device-new",
+                "name": "Новое устройство",
+                "meta": {
+                    "href": "https://example.test/customentity/devices/device-new",
+                    "type": "customentity",
+                },
+            },
+        ]
+        self.moysklad_client.fetch_active_processing_plans.return_value = [
+            {
+                "id": "plan-alice",
+                "name": "Техкарта Алисы",
+                "meta": {
+                    "href": "https://example.test/entity/processingplan/plan-alice",
+                    "type": "processingplan",
+                },
+            },
+            {
+                "id": "plan-new",
+                "name": "Новая техкарта",
+                "meta": {
+                    "href": "https://example.test/entity/processingplan/plan-new",
+                    "type": "processingplan",
+                },
+            },
+        ]
+        self.moysklad_client.update_processing_order.return_value = {
+            "id": "order-alice",
+            "quantity": 7,
+            "updated": "2026-07-21 14:30:00.000",
+        }
+        return performer_attribute_meta, device_attribute_meta
 
     def test_password_hash_is_salted_and_verifiable(self):
         first = hash_password("correct horse battery staple")
@@ -965,6 +1056,292 @@ class WebServiceTests(unittest.TestCase):
             follow_redirects=False,
         )
         self.assertEqual(overproduction.status_code, 303)
+
+    def test_admin_opens_inline_order_editor_with_moysklad_catalogs(self):
+        self.configure_order_edit_catalogs()
+        self.login("Администратор", "admin-password")
+
+        regular_list = self.client.get("/cabinet/orders")
+        self.assertIn("Изменить", regular_list.text)
+        self.moysklad_client.fetch_processing_order_attributes.assert_not_awaited()
+
+        editor = self.client.get(
+            f"/cabinet/orders?editing={self.alice_order_id}"
+        )
+        self.assertEqual(editor.status_code, 200)
+        self.assertIn("Редактирование заказа", editor.text)
+        self.assertIn('action="/cabinet/orders/', editor.text)
+        self.assertIn('name="user_id"', editor.text)
+        self.assertIn(f'value="{self.alice_id}" selected', editor.text)
+        self.assertIn('value="device-alice" selected', editor.text)
+        self.assertIn('value="plan-alice" selected', editor.text)
+        self.assertIn("Новое устройство", editor.text)
+        self.assertIn("Новая техкарта", editor.text)
+        self.moysklad_client.fetch_custom_entity_rows.assert_awaited_once_with(
+            "https://example.test/customentity/devices/metadata"
+        )
+
+    def test_editor_excludes_unmatched_ambiguous_and_inactive_users(self):
+        self.configure_order_edit_catalogs()
+        with self.Session.begin() as db:
+            db.get(User, self.bob_id).is_active = False
+            db.add(
+                User(
+                    name="Несопоставленный",
+                    password_hash=hash_password("password"),
+                    is_active=True,
+                )
+            )
+        self.moysklad_client.fetch_active_employees.return_value.append(
+            {
+                "id": "employee-alice-duplicate",
+                "name": "Алиса",
+                "meta": {
+                    "href": "https://example.test/entity/employee/employee-alice-duplicate",
+                    "type": "employee",
+                },
+            }
+        )
+        self.login("Администратор", "admin-password")
+
+        response = self.client.get(
+            f"/cabinet/orders?editing={self.alice_order_id}"
+        )
+        editor = response.text.split('class="order-edit-form"', 1)[1]
+        self.assertNotIn(f'<option value="{self.alice_id}"', editor)
+        self.assertNotIn(f'<option value="{self.bob_id}"', editor)
+        self.assertNotIn("Несопоставленный</option>", editor)
+        self.assertIn("Оставить текущее: Алиса", editor)
+
+    def test_admin_updates_order_in_moysklad_and_local_database(self):
+        performer_meta, device_meta = self.configure_order_edit_catalogs()
+        with self.Session.begin() as db:
+            db.add(
+                OrderSuborder(
+                    order_id=self.alice_order_id,
+                    number=1,
+                    planned_quantity=Decimal("2"),
+                    actual_quantity=Decimal("1"),
+                    planned_date=date(2026, 7, 30),
+                )
+            )
+        self.login("Администратор", "admin-password")
+        csrf_token = self.session_csrf()
+
+        response = self.client.post(
+            f"/cabinet/orders/{self.alice_order_id}/edit",
+            data={
+                "user_id": str(self.bob_id),
+                "device_id": "device-new",
+                "processing_plan_id": "plan-new",
+                "production_quantity": "7",
+                "csrf_token": csrf_token,
+                "return_url": "/cabinet/orders?q=Заказ&sort=quantity&direction=asc&page=2",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303)
+        redirect = urlsplit(response.headers["location"])
+        self.assertEqual(redirect.path, "/cabinet/orders")
+        self.assertEqual(parse_qs(redirect.query)["order_saved"], [str(self.alice_order_id)])
+        self.assertEqual(parse_qs(redirect.query)["q"], ["Заказ"])
+        self.moysklad_client.update_processing_order.assert_awaited_once_with(
+            "order-alice",
+            {
+                "quantity": 7,
+                "attributes": [
+                    {
+                        "meta": performer_meta,
+                        "value": {
+                            "meta": {
+                                "href": "https://example.test/entity/employee/employee-bob",
+                                "type": "employee",
+                            }
+                        },
+                    },
+                    {
+                        "meta": device_meta,
+                        "value": {
+                            "meta": {
+                                "href": "https://example.test/customentity/devices/device-new",
+                                "type": "customentity",
+                            }
+                        },
+                    },
+                ],
+                "processingPlan": {
+                    "meta": {
+                        "href": "https://example.test/entity/processingplan/plan-new",
+                        "type": "processingplan",
+                    }
+                },
+            },
+        )
+        with self.Session() as db:
+            order = db.get(MoySkladOrder, self.alice_order_id)
+            self.assertEqual(order.user_id, self.bob_id)
+            self.assertEqual(order.performer_name, "Борис")
+            self.assertEqual(order.device_name, "Новое устройство")
+            self.assertEqual(order.processing_plan_name, "Новая техкарта")
+            self.assertEqual(order.production_quantity, Decimal("7"))
+            self.assertEqual(order.raw_payload["quantity"], 7)
+            self.assertEqual(
+                order.moysklad_updated_at,
+                datetime(2026, 7, 21, 14, 30),
+            )
+            suborder = db.scalar(
+                select(OrderSuborder).where(
+                    OrderSuborder.order_id == self.alice_order_id
+                )
+            )
+            self.assertEqual(suborder.planned_quantity, Decimal("2"))
+            self.assertEqual(suborder.actual_quantity, Decimal("1"))
+
+    def test_admin_keeps_unavailable_values_and_can_clear_optional_fields(self):
+        performer_meta, device_meta = self.configure_order_edit_catalogs()
+        self.login("Администратор", "admin-password")
+        csrf_token = self.session_csrf()
+        url = f"/cabinet/orders/{self.alice_order_id}/edit"
+
+        kept = self.client.post(
+            url,
+            data={
+                "user_id": "__keep__",
+                "device_id": "__keep__",
+                "processing_plan_id": "__keep__",
+                "production_quantity": "5",
+                "csrf_token": csrf_token,
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(kept.status_code, 303)
+        self.moysklad_client.update_processing_order.assert_awaited_once_with(
+            "order-alice",
+            {"quantity": 5},
+        )
+        with self.Session() as db:
+            order = db.get(MoySkladOrder, self.alice_order_id)
+            self.assertEqual(order.user_id, self.alice_id)
+            self.assertEqual(order.device_name, "Устройство Алисы")
+            self.assertEqual(order.processing_plan_name, "Техкарта Алисы")
+
+        self.moysklad_client.update_processing_order.reset_mock()
+        cleared = self.client.post(
+            url,
+            data={
+                "user_id": "",
+                "device_id": "",
+                "processing_plan_id": "",
+                "production_quantity": "6",
+                "csrf_token": csrf_token,
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(cleared.status_code, 303)
+        self.moysklad_client.update_processing_order.assert_awaited_once_with(
+            "order-alice",
+            {
+                "quantity": 6,
+                "attributes": [
+                    {"meta": performer_meta, "value": None},
+                    {"meta": device_meta, "value": None},
+                ],
+                "processingPlan": None,
+            },
+        )
+        with self.Session() as db:
+            order = db.get(MoySkladOrder, self.alice_order_id)
+            self.assertIsNone(order.user_id)
+            self.assertIsNone(order.performer_name)
+            self.assertIsNone(order.device_name)
+            self.assertIsNone(order.processing_plan_name)
+            self.assertEqual(order.production_quantity, Decimal("6"))
+
+    def test_order_edit_validation_access_and_api_failure(self):
+        self.configure_order_edit_catalogs()
+        self.login("Администратор", "admin-password")
+        csrf_token = self.session_csrf()
+        url = f"/cabinet/orders/{self.alice_order_id}/edit"
+        valid_data = {
+            "user_id": str(self.alice_id),
+            "device_id": "device-alice",
+            "processing_plan_id": "plan-alice",
+            "production_quantity": "2",
+            "csrf_token": csrf_token,
+        }
+        for field, invalid in (
+            ("production_quantity", "0"),
+            ("production_quantity", "1.5"),
+            ("production_quantity", "1000000000000"),
+            ("device_id", "forged-device"),
+            ("processing_plan_id", "forged-plan"),
+            ("user_id", "not-an-id"),
+            ("user_id", "9" * 64),
+            ("csrf_token", "invalid"),
+        ):
+            with self.subTest(field=field, invalid=invalid):
+                response = self.client.post(url, data={**valid_data, field: invalid})
+                self.assertEqual(response.status_code, 400)
+
+        with self.Session.begin() as db:
+            db.get(User, self.bob_id).is_active = False
+        inactive_user = self.client.post(
+            url,
+            data={**valid_data, "user_id": str(self.bob_id)},
+        )
+        self.assertEqual(inactive_user.status_code, 400)
+
+        with self.Session.begin() as db:
+            db.get(User, self.bob_id).is_active = True
+        self.moysklad_client.fetch_active_employees.return_value = [
+            self.moysklad_client.fetch_active_employees.return_value[0]
+        ]
+        unmatched_user = self.client.post(
+            url,
+            data={**valid_data, "user_id": str(self.bob_id)},
+        )
+        self.assertEqual(unmatched_user.status_code, 400)
+        self.configure_order_edit_catalogs()
+
+        self.moysklad_client.update_processing_order.side_effect = MoySkladAPIError(
+            status_code=503,
+            method="PUT",
+            endpoint="entity/processingorder/order-alice",
+            errors=[{"error": "temporarily unavailable"}],
+        )
+        failed = self.client.post(url, data=valid_data)
+        self.assertEqual(failed.status_code, 502)
+        with self.Session() as db:
+            order = db.get(MoySkladOrder, self.alice_order_id)
+            self.assertEqual(order.user_id, self.alice_id)
+            self.assertEqual(order.device_name, "Устройство Алисы")
+            self.assertEqual(order.production_quantity, Decimal("2"))
+
+        regular_client = TestClient(self.app)
+        try:
+            self.login("Алиса", "alice-password", client=regular_client)
+            regular_csrf = self.session_csrf(client=regular_client)
+            forbidden = regular_client.post(
+                url,
+                data={**valid_data, "csrf_token": regular_csrf},
+            )
+            self.assertEqual(forbidden.status_code, 403)
+            self.assertNotIn("Изменить", regular_client.get("/cabinet/orders").text)
+        finally:
+            regular_client.close()
+
+    def test_order_editor_reports_invalid_moysklad_field_configuration(self):
+        self.configure_order_edit_catalogs()
+        attributes = self.moysklad_client.fetch_processing_order_attributes.return_value
+        attributes[0] = {**attributes[0], "type": "string"}
+        self.login("Администратор", "admin-password")
+
+        response = self.client.get(
+            f"/cabinet/orders?editing={self.alice_order_id}"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Поле «Исполнитель» должно иметь тип employee", response.text)
+        self.assertIn("Заказ Алисы", response.text)
 
     def test_regular_user_cannot_open_user_administration(self):
         self.login("Алиса", "alice-password")

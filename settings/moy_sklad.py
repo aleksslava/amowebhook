@@ -471,6 +471,70 @@ class MoySkladClient:
         ]
         return payload, position_rows
 
+    async def fetch_processing_order_attributes(self) -> list[dict[str, Any]]:
+        return [
+            row
+            async for row in self.iter_rows(
+                "entity/processingorder/metadata/attributes",
+            )
+        ]
+
+    async def fetch_active_employees(self) -> list[dict[str, Any]]:
+        return [
+            row
+            async for row in self.iter_rows(
+                "entity/employee",
+                filters=["archived=false"],
+                order=["name,asc"],
+            )
+        ]
+
+    async def fetch_active_processing_plans(self) -> list[dict[str, Any]]:
+        return [
+            row
+            async for row in self.iter_rows(
+                "entity/processingplan",
+                filters=["archived=false"],
+                order=["name,asc"],
+            )
+        ]
+
+    async def fetch_custom_entity_rows(
+        self,
+        metadata_href: str,
+    ) -> list[dict[str, Any]]:
+        suffix = "/metadata"
+        if not metadata_href.endswith(suffix):
+            raise ValueError("custom entity metadata href must end with /metadata")
+        endpoint = metadata_href[: -len(suffix)]
+        return [
+            row
+            async for row in self.iter_rows(
+                endpoint,
+                order=["name,asc"],
+            )
+        ]
+
+    async def update_processing_order(
+        self,
+        order_id: str,
+        payload: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        response = await self.request(
+            "PUT",
+            f"entity/processingorder/{order_id}",
+            json=dict(payload),
+            expand=["processingPlan"],
+        )
+        if not isinstance(response, dict):
+            raise MoySkladAPIError(
+                status_code=200,
+                method="PUT",
+                endpoint=f"entity/processingorder/{order_id}",
+                errors=[{"error": "processing order response is not an object"}],
+            )
+        return response
+
     async def generate_token(self, login: str, password: str) -> str:
         if not login or not password:
             raise ValueError("MoySklad login and password are required")

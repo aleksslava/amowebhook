@@ -70,6 +70,7 @@ moysklad_client = MoySkladClient(token=config.moysklad_token)
 app.include_router(
     create_web_router(
         SessionLocal,
+        moysklad_client=moysklad_client,
         session_secret=config.web_session_secret,
         cookie_secure=config.web_session_cookie_secure,
     )
