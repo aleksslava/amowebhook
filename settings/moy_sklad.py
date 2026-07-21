@@ -504,28 +504,32 @@ class MoySkladClient:
         metadata_href: str,
     ) -> list[dict[str, Any]]:
         parsed_href = urlsplit(metadata_href)
-        path = parsed_href.path.rstrip("/")
-        metadata_suffix = "/metadata"
-        if path.endswith(metadata_suffix):
-            path = path[: -len(metadata_suffix)]
-
-        marker = "/entity/customentity/"
-        marker_index = path.find(marker)
-        entity_id = path[marker_index + len(marker) :] if marker_index >= 0 else ""
-        if not entity_id or "/" in entity_id:
+        parts = [part for part in parsed_href.path.split("/") if part]
+        entity_id = None
+        for index, part in enumerate(parts):
+            tail = parts[index:]
+            if part == "entity" and len(tail) in {3, 4}:
+                if tail[1] == "customentity" and (
+                    len(tail) == 3 or tail[3] == "metadata"
+                ):
+                    entity_id = tail[2]
+                    break
+            if part == "entity" and len(tail) == 5:
+                if tail[1:4] == [
+                    "companysettings",
+                    "metadata",
+                    "customEntities",
+                ]:
+                    entity_id = tail[4]
+                    break
+        if not entity_id:
             raise ValueError(
                 "custom entity metadata href must identify a custom entity"
             )
-
-        endpoint = parsed_href._replace(
-            path=path,
-            query="",
-            fragment="",
-        ).geturl()
         return [
             row
             async for row in self.iter_rows(
-                endpoint,
+                f"entity/customentity/{entity_id}",
                 order=["name,asc"],
             )
         ]

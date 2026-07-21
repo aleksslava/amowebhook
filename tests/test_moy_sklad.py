@@ -401,13 +401,14 @@ class MoySkladClientTests(unittest.IsolatedAsyncioTestCase):
             "https://example.test/api/remap/1.2/entity/customentity/devices/metadata/",
             "https://example.test/api/remap/1.2/entity/customentity/devices",
             "https://example.test/api/remap/1.2/entity/customentity/devices?expand=owner",
+            "https://example.test/api/remap/1.2/entity/companysettings/metadata/customEntities/devices",
         ):
             self.assertEqual(await client.fetch_custom_entity_rows(href), [])
         await client.close()
 
         self.assertEqual(
             paths,
-            ["/api/remap/1.2/entity/customentity/devices"] * 3,
+            ["/api/remap/1.2/entity/customentity/devices"] * 4,
         )
 
     async def test_rejects_invalid_custom_entity_metadata_href(self):
