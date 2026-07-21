@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import logging
 import os
+import re
 import time
 from collections.abc import AsyncIterator, Mapping, Sequence
 from pathlib import Path
@@ -20,6 +21,10 @@ DEFAULT_BASE_URL = "https://api.moysklad.ru/api/remap/1.2"
 DEFAULT_ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 RETRYABLE_STATUSES = frozenset({429, 502, 503, 504})
 RETRYABLE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "PUT", "DELETE"})
+UUID_PATTERN = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
 
 
 class MoySkladAPIError(RuntimeError):
@@ -505,27 +510,13 @@ class MoySkladClient:
     ) -> list[dict[str, Any]]:
         parsed_href = urlsplit(metadata_href)
         parts = [part for part in parsed_href.path.split("/") if part]
-        entity_id = None
-        for index, part in enumerate(parts):
-            tail = parts[index:]
-            if part == "entity" and len(tail) in {3, 4}:
-                if tail[1] == "customentity" and (
-                    len(tail) == 3 or tail[3] == "metadata"
-                ):
-                    entity_id = tail[2]
-                    break
-            if part == "entity" and len(tail) == 5:
-                if tail[1:4] == [
-                    "companysettings",
-                    "metadata",
-                    "customEntities",
-                ]:
-                    entity_id = tail[4]
-                    break
-        if not entity_id:
+        entity_ids = [part for part in parts if UUID_PATTERN.fullmatch(part)]
+        if not entity_ids:
             raise ValueError(
-                "custom entity metadata href must identify a custom entity"
+                "custom entity metadata href does not contain an entity UUID: "
+                f"{parsed_href.path}"
             )
+        entity_id = entity_ids[-1]
         return [
             row
             async for row in self.iter_rows(

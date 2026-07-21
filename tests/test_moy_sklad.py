@@ -317,6 +317,7 @@ class MoySkladClientTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_fetches_order_edit_catalogs_and_updates_processing_order(self):
         requests = []
+        custom_entity_id = "0347beb0-a785-11e9-ac12-000800000003"
 
         def handler(request: httpx.Request) -> httpx.Response:
             requests.append(
@@ -355,7 +356,8 @@ class MoySkladClientTests(unittest.IsolatedAsyncioTestCase):
         employees = await client.fetch_active_employees()
         plans = await client.fetch_active_processing_plans()
         devices = await client.fetch_custom_entity_rows(
-            "https://example.test/api/remap/1.2/entity/customentity/devices/metadata"
+            "https://example.test/api/remap/1.2/entity/customentity/"
+            f"{custom_entity_id}/metadata"
         )
         updated = await client.update_processing_order(
             "order-id",
@@ -374,7 +376,7 @@ class MoySkladClientTests(unittest.IsolatedAsyncioTestCase):
                 "/api/remap/1.2/entity/processingorder/metadata/attributes",
                 "/api/remap/1.2/entity/employee",
                 "/api/remap/1.2/entity/processingplan",
-                "/api/remap/1.2/entity/customentity/devices",
+                f"/api/remap/1.2/entity/customentity/{custom_entity_id}",
                 "/api/remap/1.2/entity/processingorder/order-id",
             ],
         )
@@ -387,6 +389,7 @@ class MoySkladClientTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_accepts_custom_entity_metadata_href_variants(self):
         paths = []
+        custom_entity_id = "0347beb0-a785-11e9-ac12-000800000003"
 
         def handler(request: httpx.Request) -> httpx.Response:
             paths.append(request.url.path)
@@ -398,17 +401,23 @@ class MoySkladClientTests(unittest.IsolatedAsyncioTestCase):
             transport=httpx.MockTransport(handler),
         )
         for href in (
-            "https://example.test/api/remap/1.2/entity/customentity/devices/metadata/",
-            "https://example.test/api/remap/1.2/entity/customentity/devices",
-            "https://example.test/api/remap/1.2/entity/customentity/devices?expand=owner",
-            "https://example.test/api/remap/1.2/entity/companysettings/metadata/customEntities/devices",
+            "https://example.test/api/remap/1.2/entity/customentity/"
+            f"{custom_entity_id}/metadata/",
+            "https://example.test/api/remap/1.2/entity/customentity/"
+            f"{custom_entity_id}",
+            "https://example.test/api/remap/1.2/entity/customentity/"
+            f"{custom_entity_id}?expand=owner",
+            "https://example.test/api/remap/1.2/entity/companysettings/metadata/"
+            f"customEntities/{custom_entity_id}",
+            "https://example.test/unexpected/metadata/path/"
+            f"{custom_entity_id}/details",
         ):
             self.assertEqual(await client.fetch_custom_entity_rows(href), [])
         await client.close()
 
         self.assertEqual(
             paths,
-            ["/api/remap/1.2/entity/customentity/devices"] * 4,
+            [f"/api/remap/1.2/entity/customentity/{custom_entity_id}"] * 5,
         )
 
     async def test_rejects_invalid_custom_entity_metadata_href(self):
@@ -416,7 +425,7 @@ class MoySkladClientTests(unittest.IsolatedAsyncioTestCase):
             token="token",
             base_url="https://example.test/api/remap/1.2",
         )
-        with self.assertRaisesRegex(ValueError, "must identify a custom entity"):
+        with self.assertRaisesRegex(ValueError, "does not contain an entity UUID"):
             await client.fetch_custom_entity_rows(
                 "https://example.test/api/remap/1.2/entity/product/device-id"
             )
