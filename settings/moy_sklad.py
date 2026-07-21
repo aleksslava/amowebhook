@@ -503,10 +503,25 @@ class MoySkladClient:
         self,
         metadata_href: str,
     ) -> list[dict[str, Any]]:
-        suffix = "/metadata"
-        if not metadata_href.endswith(suffix):
-            raise ValueError("custom entity metadata href must end with /metadata")
-        endpoint = metadata_href[: -len(suffix)]
+        parsed_href = urlsplit(metadata_href)
+        path = parsed_href.path.rstrip("/")
+        metadata_suffix = "/metadata"
+        if path.endswith(metadata_suffix):
+            path = path[: -len(metadata_suffix)]
+
+        marker = "/entity/customentity/"
+        marker_index = path.find(marker)
+        entity_id = path[marker_index + len(marker) :] if marker_index >= 0 else ""
+        if not entity_id or "/" in entity_id:
+            raise ValueError(
+                "custom entity metadata href must identify a custom entity"
+            )
+
+        endpoint = parsed_href._replace(
+            path=path,
+            query="",
+            fragment="",
+        ).geturl()
         return [
             row
             async for row in self.iter_rows(

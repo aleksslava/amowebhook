@@ -385,14 +385,39 @@ class MoySkladClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(requests[4][2]["expand"], "processingPlan")
         self.assertEqual(requests[4][3], {"quantity": 7})
 
+    async def test_accepts_custom_entity_metadata_href_variants(self):
+        paths = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            paths.append(request.url.path)
+            return httpx.Response(200, json={"rows": [], "meta": {}})
+
+        client = MoySkladClient(
+            token="token",
+            base_url="https://example.test/api/remap/1.2",
+            transport=httpx.MockTransport(handler),
+        )
+        for href in (
+            "https://example.test/api/remap/1.2/entity/customentity/devices/metadata/",
+            "https://example.test/api/remap/1.2/entity/customentity/devices",
+            "https://example.test/api/remap/1.2/entity/customentity/devices?expand=owner",
+        ):
+            self.assertEqual(await client.fetch_custom_entity_rows(href), [])
+        await client.close()
+
+        self.assertEqual(
+            paths,
+            ["/api/remap/1.2/entity/customentity/devices"] * 3,
+        )
+
     async def test_rejects_invalid_custom_entity_metadata_href(self):
         client = MoySkladClient(
             token="token",
             base_url="https://example.test/api/remap/1.2",
         )
-        with self.assertRaisesRegex(ValueError, "must end with /metadata"):
+        with self.assertRaisesRegex(ValueError, "must identify a custom entity"):
             await client.fetch_custom_entity_rows(
-                "https://example.test/api/remap/1.2/entity/customentity/devices"
+                "https://example.test/api/remap/1.2/entity/product/device-id"
             )
 
 
